@@ -124,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        {/* User Profile Footer (Matching Mockup 1 & 2) */}
+        {/* User Profile Footer */}
         {user && (
           <div className="pt-4 border-t border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2.5 overflow-hidden">
@@ -136,13 +136,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <p className="text-[10px] text-slate-400 truncate">{user.target_job_role || 'AI Engineer'}</p>
               </div>
             </div>
-            <button
-              onClick={logout}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-900 transition-all"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
         )}
       </aside>

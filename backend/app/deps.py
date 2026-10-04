@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
@@ -9,47 +10,53 @@ from app.core.database import get_db
 from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login"
+    tokenUrl=f"{settings.API_V1_STR}/auth/login",
+    auto_error=False
 )
 
 
 def get_current_user(
     db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+    token: Optional[str] = Depends(oauth2_scheme)
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except (jwt.PyJWTError, ValidationError):
-        raise credentials_exception
+    """
+    Get current user.
+    In standalone app mode, if no token is provided or invalid, seamlessly
+    authenticates as the default Demo Professional user so no login is ever needed.
+    """
+    if token:
+        try:
+            payload = jwt.decode(
+                token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            )
+            user_id: str = payload.get("sub")
+            if user_id:
+                user = db.query(User).filter(User.id == int(user_id)).first()
+                if user and user.is_active:
+                    return user
+        except Exception:
+            pass
 
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if user is None:
-        raise credentials_exception
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user account"
+    # Standalone mode: fallback to default user automatically
+    user = db.query(User).filter(User.email == "demo@careermind.ai").first()
+    if not user:
+        user = db.query(User).first()
+    if not user:
+        user = User(
+            email="demo@careermind.ai",
+            full_name="NexPath User",
+            hashed_password="standalone-mode",
+            is_active=True,
+            is_superuser=True
         )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     return user
 
 
 def get_current_admin_user(
     current_user: User = Depends(get_current_user)
 ) -> User:
-    """Enforce superuser/admin privileges for special access routes."""
-    if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Special Admin access privileges required."
-        )
+    """Admin route check - granted in standalone mode."""
     return current_user

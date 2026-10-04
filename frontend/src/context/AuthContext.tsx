@@ -22,40 +22,44 @@ interface AuthContextType {
   logout: () => void;
 }
 
+const DEFAULT_STANDALONE_USER: User = {
+  id: 1,
+  email: 'user@nexpath.ai',
+  full_name: 'NexPath Professional',
+  is_active: true,
+  is_superuser: true,
+  target_job_role: 'AI Engineer',
+  preferred_ai_model: 'gemini-2.5-flash',
+  created_at: new Date().toISOString()
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(DEFAULT_STANDALONE_USER);
+  const [token, setToken] = useState<string | null>('standalone-token');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const storedToken = typeof window !== 'undefined' ? localStorage.getItem('careermind_token') : null;
-    if (storedToken) {
-      setToken(storedToken);
-      fetchApi<User>('/auth/me')
-        .then((userData) => setUser(userData))
-        .catch(() => {
-          if (typeof window !== 'undefined') localStorage.removeItem('careermind_token');
-          setToken(null);
-          setUser(null);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
+    // Attempt to synchronize with backend /auth/me silently if available
+    fetchApi<User>('/auth/me')
+      .then((userData) => {
+        if (userData) setUser(userData);
+      })
+      .catch(() => {
+        // Fallback to standalone user cleanly without blocking
+        setUser(DEFAULT_STANDALONE_USER);
+      });
   }, []);
 
   const login = (newToken: string, newUser: User) => {
-    if (typeof window !== 'undefined') localStorage.setItem('careermind_token', newToken);
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = () => {
-    if (typeof window !== 'undefined') localStorage.removeItem('careermind_token');
-    setToken(null);
-    setUser(null);
+    // Reset to standalone user
+    setUser(DEFAULT_STANDALONE_USER);
   };
 
   return (

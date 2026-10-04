@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+import os
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
@@ -66,16 +69,56 @@ def seed_default_users():
 
 seed_default_users()
 
+# Mount API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+# Determine path to compiled Next.js static files
+# Checks both local sibling '../frontend/out' and Docker root '/app/frontend/out'
+POSSIBLE_STATIC_DIRS = [
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "out")),
+    "/app/frontend/out",
+    os.path.abspath(os.path.join(os.getcwd(), "frontend", "out")),
+    os.path.abspath(os.path.join(os.getcwd(), "..", "frontend", "out")),
+]
 
-@app.get("/")
-def root():
-    return {
-        "message": "Welcome to NexPath AI Career Operating System API",
-        "docs": "/docs",
-        "health": f"{settings.API_V1_STR}/health"
-    }
+STATIC_DIR = next((d for d in POSSIBLE_STATIC_DIRS if os.path.exists(d) and os.path.isdir(d)), None)
+
+if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, "index.html")):
+    # Mount Next.js _next assets directory
+    _next_dir = os.path.join(STATIC_DIR, "_next")
+    if os.path.exists(_next_dir):
+        app.mount("/_next", StaticFiles(directory=_next_dir), name="next_assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa_or_api(request: Request, full_path: str):
+        # Do not intercept API or docs routes
+        if full_path.startswith("api/") or full_path == "docs" or full_path == "openapi.json":
+            return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+        # Try to serve exact static file (e.g. favicon.ico, images)
+        file_path = os.path.join(STATIC_DIR, full_path)
+        if full_path and os.path.isfile(file_path):
+            return FileResponse(file_path)
+
+        # Check for HTML export directories (e.g. /dashboard -> /dashboard/index.html or /dashboard.html)
+        html_path = os.path.join(STATIC_DIR, f"{full_path.rstrip('/')}.html")
+        if os.path.isfile(html_path):
+            return FileResponse(html_path)
+
+        dir_html = os.path.join(STATIC_DIR, full_path.rstrip("/"), "index.html")
+        if os.path.isfile(dir_html):
+            return FileResponse(dir_html)
+
+        # Fallback to root index.html
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+else:
+    @app.get("/")
+    def root():
+        return {
+            "message": "Welcome to NexPath AI Career Operating System API",
+            "docs": "/docs",
+            "health": f"{settings.API_V1_STR}/health"
+        }
 
 
 if __name__ == "__main__":

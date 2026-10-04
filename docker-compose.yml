@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: careermind_db
+    environment:
+      POSTGRES_USER: careermind_user
+      POSTGRES_PASSWORD: careermind_password
+      POSTGRES_DB: careermind_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: careermind_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://careermind_user:careermind_password@postgres:5432/careermind_db
+      - SECRET_KEY=careermind-super-secret-jwt-key-2026-production-ready
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

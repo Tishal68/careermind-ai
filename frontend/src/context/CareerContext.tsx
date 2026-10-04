@@ -8,9 +8,9 @@ import { useSession } from '@/context/SessionContext';
 interface CareerContextType {
   careerProfile: any | null;
   nexScoreBreakdown: any | null;
-  targetRole: str;
+  targetRole: string;
   isLoading: boolean;
-  updateTargetRole: (newRole: str) => Promise<void>;
+  updateTargetRole: (newRole: string) => Promise<void>;
   refreshCareer: () => Promise<void>;
 }
 
@@ -21,7 +21,7 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const { activeSession, latestReport } = useSession();
   const [careerProfile, setCareerProfile] = useState<any | null>(null);
   const [nexScoreBreakdown, setNexScoreBreakdown] = useState<any | null>(null);
-  const [targetRole, setTargetRole] = useState<str>(user?.target_job_role || 'AI Engineer');
+  const [targetRole, setTargetRole] = useState<string>(user?.target_job_role || 'AI Engineer');
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshCareer = async () => {
@@ -56,7 +56,7 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     refreshCareer();
   }, [user, activeSession, latestReport]);
 
-  const updateTargetRole = async (newRole: str) => {
+  const updateTargetRole = async (newRole: string) => {
     setTargetRole(newRole);
     try {
       await fetchApi('/user/settings', {

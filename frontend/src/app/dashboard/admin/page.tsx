@@ -34,7 +34,7 @@ export default function AdminPage() {
     }
   }, [user]);
 
-  const handleDeleteUser = async (userId: int) => {
+  const handleDeleteUser = async (userId: number) => {
     if (!confirm('Are you sure you want to delete this user account?')) return;
     try {
       await fetchApi(`/admin/users/${userId}`, { method: 'DELETE' });
@@ -44,7 +44,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleToggleAdmin = async (userId: int) => {
+  const handleToggleAdmin = async (userId: number) => {
     try {
       await fetchApi(`/admin/users/${userId}/toggle-admin`, { method: 'POST' });
       loadAdminData();

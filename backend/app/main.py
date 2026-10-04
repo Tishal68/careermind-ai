@@ -18,13 +18,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ],
-    allow_origin_regex=r"https?://.*",
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,7 +67,6 @@ seed_default_users()
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Determine path to compiled Next.js static files
-# Checks both local sibling '../frontend/out' and Docker root '/app/frontend/out'
 POSSIBLE_STATIC_DIRS = [
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "out")),
     "/app/frontend/out",
@@ -84,32 +77,38 @@ POSSIBLE_STATIC_DIRS = [
 STATIC_DIR = next((d for d in POSSIBLE_STATIC_DIRS if os.path.exists(d) and os.path.isdir(d)), None)
 
 if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, "index.html")):
-    # Mount Next.js _next assets directory
     _next_dir = os.path.join(STATIC_DIR, "_next")
     if os.path.exists(_next_dir):
         app.mount("/_next", StaticFiles(directory=_next_dir), name="next_assets")
 
     @app.get("/{full_path:path}")
-    async def serve_spa_or_api(request: Request, full_path: str):
+    async def serve_spa_or_api(request: Request, full_path: str = ""):
         # Do not intercept API or docs routes
-        if full_path.startswith("api/") or full_path == "docs" or full_path == "openapi.json":
+        if full_path.startswith("api/") or full_path in ("docs", "openapi.json"):
             return JSONResponse(status_code=404, content={"detail": "Not found"})
 
-        # Try to serve exact static file (e.g. favicon.ico, images)
-        file_path = os.path.join(STATIC_DIR, full_path)
-        if full_path and os.path.isfile(file_path):
+        clean_path = full_path.strip("/")
+
+        # 1. Root route
+        if not clean_path:
+            return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+
+        # 2. Exact file (e.g. favicon.ico, images, .txt)
+        file_path = os.path.join(STATIC_DIR, clean_path)
+        if os.path.isfile(file_path):
             return FileResponse(file_path)
 
-        # Check for HTML export directories (e.g. /dashboard -> /dashboard/index.html or /dashboard.html)
-        html_path = os.path.join(STATIC_DIR, f"{full_path.rstrip('/')}.html")
-        if os.path.isfile(html_path):
-            return FileResponse(html_path)
-
-        dir_html = os.path.join(STATIC_DIR, full_path.rstrip("/"), "index.html")
+        # 3. Directory with index.html (e.g. login/index.html, dashboard/index.html)
+        dir_html = os.path.join(STATIC_DIR, clean_path, "index.html")
         if os.path.isfile(dir_html):
             return FileResponse(dir_html)
 
-        # Fallback to root index.html
+        # 4. Suffix .html (e.g. login.html, dashboard.html)
+        html_path = os.path.join(STATIC_DIR, f"{clean_path}.html")
+        if os.path.isfile(html_path):
+            return FileResponse(html_path)
+
+        # 5. SPA fallback
         return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 else:
     @app.get("/")

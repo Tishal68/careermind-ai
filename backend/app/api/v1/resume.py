@@ -19,6 +19,29 @@ UPLOAD_DIR = "./uploads/resumes"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
+def save_resume_upload(file: UploadFile, user_id: int):
+    filename = (file.filename or "resume").replace("\\", "/").rsplit("/", 1)[-1]
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in [".pdf", ".docx"]:
+        raise HTTPException(status_code=400, detail="Upload a PDF or DOCX resume.")
+    contents = file.file.read(5 * 1024 * 1024 + 1)
+    if not contents or len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Resume must be non-empty and no larger than 5 MB.")
+    session_uuid = str(uuid.uuid4())
+    user_dir = os.path.join(UPLOAD_DIR, f"user_{user_id}", session_uuid)
+    os.makedirs(user_dir, exist_ok=True)
+    saved_path = os.path.join(user_dir, "resume" + ext)
+    try:
+        with open(saved_path, "wb") as buffer:
+            buffer.write(contents)
+        raw_text = ResumeParserService.extract_raw_text(saved_path, ext)
+    except ValueError as exc:
+        os.remove(saved_path)
+        os.rmdir(user_dir)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return filename, ext, session_uuid, saved_path, raw_text
+
+
 @router.post("/auto-pipeline", tags=["NexPath Auto Pipeline"])
 async def run_auto_pipeline(
     file: UploadFile = File(...),
@@ -26,25 +49,14 @@ async def run_auto_pipeline(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in [".pdf", ".docx", ".doc"]:
-        raise HTTPException(status_code=400, detail="Invalid format. Allowed: .pdf, .docx")
-    
-    session_uuid = str(uuid.uuid4())
-    user_dir = os.path.join(UPLOAD_DIR, f"user_{current_user.id}", session_uuid)
-    os.makedirs(user_dir, exist_ok=True)
-    saved_path = os.path.join(user_dir, file.filename)
-    with open(saved_path, "wb") as buf:
-        shutil.copyfileobj(file.file, buf)
-
-    raw_text = ResumeParserService.extract_raw_text(saved_path, ext)
+    filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, current_user.id)
     parsed = ResumeParserService.parse_resume_content(raw_text)
 
     # Create ResumeSession Root Entity
     session_record = ResumeSession(
         user_id=current_user.id,
         session_uuid=session_uuid,
-        file_name=file.filename,
+        file_name=filename,
         file_type=ext,
         file_path=saved_path,
         raw_text=raw_text,
@@ -100,20 +112,9 @@ async def run_auto_pipeline(
 
 @router.post("/upload", response_model=ResumeResponse, status_code=status.HTTP_201_CREATED)
 async def upload_resume(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in [".pdf", ".docx", ".doc"]:
-        raise HTTPException(status_code=400, detail="Invalid format. Allowed: .pdf, .docx")
-    
-    session_uuid = str(uuid.uuid4())
-    user_dir = os.path.join(UPLOAD_DIR, f"user_{current_user.id}", session_uuid)
-    os.makedirs(user_dir, exist_ok=True)
-    saved_path = os.path.join(user_dir, file.filename)
-    with open(saved_path, "wb") as buf:
-        shutil.copyfileobj(file.file, buf)
-        
-    raw_text = ResumeParserService.extract_raw_text(saved_path, ext)
+    filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, current_user.id)
     parsed = ResumeParserService.parse_resume_content(raw_text)
-    record = ResumeSession(user_id=current_user.id, session_uuid=session_uuid, file_name=file.filename, file_type=ext, file_path=saved_path, raw_text=raw_text, parsed_data=parsed)
+    record = ResumeSession(user_id=current_user.id, session_uuid=session_uuid, file_name=filename, file_type=ext, file_path=saved_path, raw_text=raw_text, parsed_data=parsed)
     db.add(record)
     db.commit()
     db.refresh(record)

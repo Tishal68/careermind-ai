@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Local CPU inference can take longer than Next's default 30 seconds.
+    proxyTimeout: 210000,
+  },
   images: {
     unoptimized: true,
   },
@@ -9,15 +13,15 @@ const nextConfig = {
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'http://127.0.0.1:8000/api/v1/:path*',
+        destination: `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/api/v1/:path*`,
       },
       {
         source: '/docs',
-        destination: 'http://127.0.0.1:8000/docs',
+        destination: `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/docs`,
       },
       {
         source: '/openapi.json',
-        destination: 'http://127.0.0.1:8000/openapi.json',
+        destination: `${process.env.BACKEND_URL || 'http://127.0.0.1:8000'}/openapi.json`,
       },
     ];
   },

@@ -2,21 +2,27 @@ import os
 import sys
 import json
 import httpx
+from io import BytesIO
+from docx import Document
 
-BASE_URL = "http://127.0.0.1:8000/api/v1"
+BASE_URL = os.getenv("CAREERMIND_API_URL", "http://127.0.0.1:8000/api/v1")
+FAILURES = []
 
 def print_result(step_name, success, detail=""):
+    if not success:
+        FAILURES.append(step_name)
     symbol = "[PASS]" if success else "[FAIL]"
     print(f"{symbol} {step_name}")
     if detail:
         print(f"   -> {detail}")
 
 def test_full_system():
+    FAILURES.clear()
     print("==================================================")
     print("E2E SYSTEM INTEGRATION & SERVICE DIAGNOSTIC TEST")
     print("==================================================\n")
 
-    client = httpx.Client(timeout=60.0)
+    client = httpx.Client(timeout=210.0)
 
     # 1. Health Check
     try:
@@ -25,7 +31,7 @@ def test_full_system():
         print_result("1. API Health Check", True, f"Status: {r.json()['status']}")
     except Exception as e:
         print_result("1. API Health Check", False, str(e))
-        return
+        raise AssertionError("Required end-to-end step failed")
 
     # 2. Demo User Login
     demo_token = None
@@ -61,7 +67,7 @@ def test_full_system():
 
     if not demo_token:
         print("\nCannot proceed with user services without valid token.")
-        return
+        raise AssertionError("Required end-to-end step failed")
 
     headers = {"Authorization": f"Bearer {demo_token}"}
 
@@ -73,17 +79,17 @@ def test_full_system():
     except Exception as e:
         print_result("5. User Identity Verification", False, str(e))
 
-    # Create dummy sample resume PDF for testing
-    sample_pdf_path = "sample_resume.pdf"
-    with open(sample_pdf_path, "wb") as f:
-        f.write(b"%PDF-1.4 sample resume content containing Python, Machine Learning, FastApi, React, SQL.")
+    # Generate a valid resume document; malformed PDFs are correctly rejected.
+    document = Document()
+    document.add_paragraph("Sample test candidate. Skills: Python, Machine Learning, FastAPI, React, SQL.")
+    sample = BytesIO()
+    document.save(sample)
 
     # 6. Resume Upload & Parser Engine
     resume_id = None
     try:
-        with open(sample_pdf_path, "rb") as f:
-            files = {"file": ("test_resume.pdf", f, "application/pdf")}
-            r = client.post(f"{BASE_URL}/resume/upload", headers=headers, files=files)
+        files = {"file": ("test_resume.docx", sample.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
+        r = client.post(f"{BASE_URL}/resume/upload", headers=headers, files=files)
         assert r.status_code == 201, f"HTTP {r.status_code}: {r.text}"
         res_data = r.json()
         resume_id = res_data["id"]
@@ -91,15 +97,12 @@ def test_full_system():
         print_result("6. Resume Parser Engine (/resume/upload)", True, f"Resume ID {resume_id} parsed. Skills extracted: {skills}")
     except Exception as e:
         print_result("6. Resume Parser Engine", False, str(e))
-    finally:
-        if os.path.exists(sample_pdf_path):
-            os.remove(sample_pdf_path)
 
     if not resume_id:
         print("\nCannot test analysis without parsed resume.")
-        return
+        raise AssertionError("Required end-to-end step failed")
 
-    # 7. Gemini Skill Gap Analysis Engine
+    # 7. Resume Role Match Engine
     report_id = None
     try:
         req_payload = {
@@ -115,9 +118,9 @@ def test_full_system():
         ats = report_data["ats_score"]
         readiness = report_data["readiness_score"]
         missing = report_data["gap_analysis"].get("missing_skills", [])
-        print_result("7. Gemini Skill Gap Analysis Engine", True, f"Report ID {report_id} generated. ATS Score: {ats}%, Readiness: {readiness}%. Missing skills: {missing}")
+        print_result("7. Resume Role Match Engine", True, f"Report ID {report_id} generated. ATS Score: {ats}%, Readiness: {readiness}%. Missing skills: {missing}")
     except Exception as e:
-        print_result("7. Gemini Skill Gap Analysis Engine", False, str(e))
+        print_result("7. Resume Role Match Engine", False, str(e))
 
     # 8. Learning Roadmap Generator
     if report_id:
@@ -196,6 +199,9 @@ def test_full_system():
             print_result("14. Special Admin System Portal", False, str(e))
 
     print("\n==================================================")
+    client.close()
+    if FAILURES:
+        raise AssertionError(f"Failed end-to-end checks: {FAILURES}")
     print("ALL 14 CORE CAREERMIND AI SERVICES PASSED CLEANLY!")
     print("==================================================\n")
 

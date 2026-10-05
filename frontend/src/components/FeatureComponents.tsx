@@ -21,7 +21,7 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
 
   const validateAndSetFile = (selected: File) => {
     setError(null);
-    if (!selected.name.endsWith('.pdf') && !selected.name.endsWith('.docx')) {
+    if (!selected.name.toLowerCase().endsWith('.pdf') && !selected.name.toLowerCase().endsWith('.docx')) {
       setError('Invalid file format. Please upload a PDF or DOCX file.');
       return;
     }
@@ -40,7 +40,7 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
       const formData = new FormData();
       formData.append('file', file);
       const token = localStorage.getItem('careermind_token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/v1'}/resume/upload`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/resume/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -62,7 +62,7 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
         onDrop={(e) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files[0]) validateAndSetFile(e.dataTransfer.files[0]); }}
         className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${isDragOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700/60 bg-slate-900/40'}`}
       >
-        <input type="file" accept=".pdf,.docx,.doc" onChange={(e) => e.target.files?.[0] && validateAndSetFile(e.target.files[0])} className="hidden" id="resume-file-input" />
+        <input type="file" accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && validateAndSetFile(e.target.files[0])} className="hidden" id="resume-file-input" />
         <label htmlFor="resume-file-input" className="cursor-pointer block">
           <div className="p-4 rounded-full bg-indigo-600/10 border border-indigo-500/20 w-fit mx-auto text-indigo-400 mb-4"><UploadCloud className="w-8 h-8" /></div>
           {file ? <p className="text-sm font-semibold text-white flex items-center justify-center gap-2"><FileText className="w-4 h-4 text-indigo-400" />{file.name}</p> : <p className="text-sm font-medium text-slate-200">Click to upload or drag & drop resume file (PDF/DOCX)</p>}
@@ -116,7 +116,7 @@ export const RoleSelector: React.FC<any> = ({ resumes, selectedResumeId, setSele
       <div><label className="block text-xs font-semibold text-slate-300 mb-1">Target Field</label><select value={selectedField} onChange={(e) => setSelectedField(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">{FIELDS.map(f => <option key={f} value={f}>{f}</option>)}</select></div>
       <div><label className="block text-xs font-semibold text-slate-300 mb-1">Job Role</label><select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">{JOB_ROLES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
       <div><label className="block text-xs font-semibold text-slate-300 mb-1">Experience Level</label><select value={selectedLevel} onChange={(e) => setSelectedLevel(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">{EXPERIENCE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}</select></div>
-      <Button onClick={onAnalyze} isLoading={isAnalyzing} disabled={!selectedResumeId} className="w-full mt-4" leftIcon={<Sparkles className="w-4 h-4" />}>Analyze Skill Gap with Gemini</Button>
+      <Button onClick={onAnalyze} isLoading={isAnalyzing} disabled={!selectedResumeId} className="w-full mt-4" leftIcon={<Sparkles className="w-4 h-4" />}>Check Role Match</Button>
     </div>
   </Card>
 );
@@ -127,16 +127,13 @@ export const GapBreakdown: React.FC<{ report: any }> = ({ report }) => {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card glass className="text-center p-6 border-indigo-500/30"><p className="text-xs font-semibold text-slate-400 uppercase">ATS Compatibility</p><p className="text-4xl font-extrabold text-indigo-400">{report.ats_score}%</p></Card>
-        <Card glass className="text-center p-6 border-purple-500/30"><p className="text-xs font-semibold text-slate-400 uppercase">Resume Quality</p><p className="text-4xl font-extrabold text-purple-400">{report.resume_score}%</p></Card>
-        <Card glass className="text-center p-6 border-pink-500/30"><p className="text-xs font-semibold text-slate-400 uppercase">Career Readiness</p><p className="text-4xl font-extrabold text-pink-400">{report.readiness_score}%</p></Card>
-      </div>
+      <Card glass className="border-emerald-500/30"><p className="text-xs font-semibold text-slate-400 uppercase">Skills match for {report.job_role}</p><p className="text-4xl font-extrabold text-emerald-400">{report.analysis_data?.match_percent ?? '—'}%</p><p className="text-lg font-semibold text-white mt-2">{report.analysis_data?.match_label}</p><p className="text-xs text-slate-400 mt-2">Skills mentioned in a resume do not prove proficiency. Missing skills may simply be absent from the document.</p></Card>
       {gap.reasoning && <Card glass className="border-indigo-500/20 bg-indigo-500/5"><div className="flex items-start gap-3"><Lightbulb className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" /><p className="text-xs text-slate-300 leading-relaxed">{gap.reasoning}</p></div></Card>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card glass><h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-rose-400" />Missing Skills</h3><div className="flex flex-wrap gap-2">{gap.missing_skills?.map((s: string, i: number) => <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 border border-rose-500/30 text-rose-300">+ {s}</span>)}</div></Card>
-        <Card glass><h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><Award className="w-4 h-4 text-amber-400" />Recommended Certifications</h3><ul className="space-y-2 text-xs text-slate-300">{gap.recommended_certifications?.map((c: string, i: number) => <li key={i} className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">🏆 {c}</li>)}</ul></Card>
+        <Card glass><h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-rose-400" />Skills to learn or demonstrate</h3>{gap.missing_skills?.length === 0 && <p className="text-xs text-emerald-300">All listed core skills were found.</p>}<div className="flex flex-wrap gap-2">{gap.missing_skills?.map((s: string, i: number) => <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 border border-rose-500/30 text-rose-300">+ {s}</span>)}</div></Card>
+        <Card glass><h3 className="text-sm font-bold text-white mb-4">Skills found in resume</h3>{!report.analysis_data?.matched_skills?.length && <p className="text-xs text-slate-400">No core skills for this role were found in the resume.</p>}<div className="flex flex-wrap gap-2">{report.analysis_data?.matched_skills?.map((s: string) => <span key={s} className="px-3 py-1.5 rounded-lg text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">{s}</span>)}</div></Card>
       </div>
+      <Card glass><h3 className="text-sm font-bold text-white mb-4">How to upgrade yourself</h3><ol className="list-decimal list-inside space-y-3 text-sm text-slate-300">{gap.learning_steps?.map((step: string, i: number) => <li key={i}>{step}</li>)}</ol><a href="/dashboard/coach" className="inline-block mt-5 text-emerald-400 text-sm underline">Discuss your plan with the Ollama career coach</a></Card>
     </div>
   );
 };

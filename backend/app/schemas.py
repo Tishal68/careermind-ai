@@ -159,7 +159,7 @@ class ProjectRecommendation(BaseModel):
 
 # Chat Assistant
 class ChatMessageRequest(BaseModel):
-    content: str = Field(..., json_schema_extra={"example": "How can I prepare for a Senior AI Engineer interview?"})
+    content: str = Field(..., min_length=1, max_length=2000, json_schema_extra={"example": "How can I prepare for a Senior AI Engineer interview?"})
 
 
 class ChatMessageResponse(BaseModel):

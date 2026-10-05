@@ -12,34 +12,56 @@ from app.schemas import (
     RecentReportSummary, RoadmapResponse, ProjectRecommendation
 )
 from app.intelligence.career_engine import career_engine
+from app.intelligence.career_graph import career_graph
 from app.intelligence.learning_engine import learning_engine
 from app.intelligence.recommendation_engine import recommendation_engine
 
 router = APIRouter(tags=["Reports & Analytics"])
 
 
-@router.post("/analysis/analyze", response_model=CareerReportResponse, status_code=status.HTTP_201_CREATED)
-def run_analysis(req: AnalysisRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    session = db.query(ResumeSession).filter(ResumeSession.id == req.resume_id, ResumeSession.user_id == current_user.id).first()
-    if not session:
-        raise HTTPException(status_code=404, detail="Resume session not found")
-    
-    parsed = session.parsed_data or {}
-    skills = parsed.get("technical_skills", [])
-    eval_res = career_engine.evaluate_candidate(skills, req.job_role, req.experience_level)
+@router.post("/analysis/analyze", response_model=CareerReportResponse, status_code=201)
+def analyze_role(req: AnalysisRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    resume = db.query(ResumeSession).filter(
+        ResumeSession.id == req.resume_id, ResumeSession.user_id == current_user.id
+    ).first()
+    if resume is None:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    if req.job_role.lower() not in career_graph.roles:
+        raise HTTPException(status_code=400, detail="Select a supported job role")
 
+    parsed = resume.parsed_data or {}
+    skills = list(dict.fromkeys(parsed.get("technical_skills", []) + parsed.get("tools_frameworks", [])))
+    evaluation = career_engine.evaluate_candidate(skills, req.job_role, req.experience_level)
+    matched = evaluation["matched_skills"]
+    missing = evaluation["missing_skills"]
+    match_percent = evaluation["match_percent"]
+    steps = [
+        f"Learn {skill} fundamentals, then build a small project that demonstrates {skill}."
+        for skill in missing
+    ]
+    steps.append(f"Build one portfolio project for {req.job_role} that combines your skills. Document what you built, your decisions, and measurable results.")
+    steps.append("Update your resume with evidence from that project, then practice explaining your work in a mock interview.")
     report = CareerReport(
         user_id=current_user.id,
-        resume_session_id=session.id,
+        resume_session_id=resume.id,
         field=req.field,
         job_role=req.job_role,
         experience_level=req.experience_level,
-        resume_score=eval_res["resume_score"],
-        ats_score=eval_res["ats_score"],
-        readiness_score=eval_res["readiness_score"],
-        analysis_data={"matched_skills": eval_res["matched_skills"]},
-        gap_analysis={"missing_skills": eval_res["missing_skills"]}
+        nex_score=evaluation["nex_score"],
+        resume_score=evaluation["resume_score"],
+        ats_score=evaluation["ats_score"],
+        readiness_score=evaluation["readiness_score"],
+        analysis_data={"matched_skills": matched, "match_percent": match_percent,
+                       "match_label": "Strong skills match" if match_percent >= 80 else "Partial skills match" if match_percent >= 50 else "Limited skills match"},
+        gap_analysis={
+            "missing_skills": missing,
+            "learning_steps": steps,
+            "reasoning": f"Your resume shows {len(matched)} of {len(matched) + len(missing)} core skills for {req.job_role}. This is a skills overlap estimate, not a hiring prediction.",
+        },
+        roadmap_data={"milestones": []},
+        project_recommendations=[],
     )
+    current_user.target_job_role = req.job_role
     db.add(report)
     db.commit()
     db.refresh(report)

@@ -6,8 +6,8 @@ import { CareerProvider } from '@/context/CareerContext';
 import { WorkspaceProvider } from '@/context/WorkspaceContext';
 
 export const metadata: Metadata = {
-  title: 'NexPath - Your AI Career Operating System',
-  description: 'Proactive AI Career Operating System for automated resume parsing, ATS checking, NexScore™ computation, skill gap analysis, and AI career coaching.',
+  title: 'CareerMind AI - Resume match and career coach',
+  description: 'Match your resume to a job role, discover missing skills, and plan your next step with a local Ollama career coach.',
 };
 
 export default function RootLayout({

@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Any, List
 import pdfplumber
 import docx
+from app.intelligence.skill_catalog import ALIASES
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ TECHNICAL_SKILL_KEYWORDS = [
     "sql", "postgresql", "mysql", "mongodb", "redis", "docker", "kubernetes", "aws", "gcp", "azure",
     "machine learning", "deep learning", "tensorflow", "pytorch", "scikit-learn", "pandas", "numpy",
     "data science", "data analysis", "nlp", "computer vision", "generative ai", "langchain", "rag",
+    "statistics", "excel", "tableau", "mlops", "llm", "opencv", "transformers", "terraform", "vector databases",
     "git", "ci/cd", "linux", "rest api", "graphql", "c++", "java", "go", "rust", "tailwind css", "html", "css"
 ]
 
@@ -24,89 +26,42 @@ SOFT_SKILL_KEYWORDS = [
 class ResumeParserService:
     @staticmethod
     def extract_raw_text(file_path: str, file_type: str) -> str:
-        ext = file_type.lower()
-        text = ""
-        if "pdf" in ext:
-            try:
+        try:
+            if file_type.lower() == ".pdf":
                 with pdfplumber.open(file_path) as pdf:
-                    for page in pdf.pages:
-                        extracted = page.extract_text()
-                        if extracted:
-                            text += extracted + "\n"
-            except Exception as e:
-                logger.warning(f"pdfplumber extraction warning: {e}")
-                try:
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        text = f.read()
-                except Exception:
-                    text = "Candidate resume containing Python, FastApi, Machine Learning, React, SQL skills."
-        elif "docx" in ext or "doc" in ext:
-            try:
-                doc = docx.Document(file_path)
-                for para in doc.paragraphs:
-                    text += para.text + "\n"
-            except Exception as e:
-                logger.warning(f"docx extraction warning: {e}")
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                    text = f.read()
-        else:
-            raise ValueError(f"Unsupported file format: {file_type}")
-        
-        return text.strip() if text.strip() else "Candidate resume text unavailable."
+                    text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+            elif file_type.lower() == ".docx":
+                document = docx.Document(file_path)
+                parts = [p.text for p in document.paragraphs]
+                parts.extend(cell.text for table in document.tables for row in table.rows for cell in row.cells)
+                text = "\n".join(parts)
+            else:
+                raise ValueError("Upload a PDF or DOCX resume.")
+        except Exception as exc:
+            raise ValueError("Unable to read this resume. Upload a valid PDF or DOCX file.") from exc
+        if not text.strip():
+            raise ValueError("No readable text found. Use a text-based PDF or DOCX; scanned PDFs need OCR first.")
+        return text.strip()
 
     @staticmethod
     def parse_resume_content(raw_text: str) -> Dict[str, Any]:
-        text_lower = raw_text.lower()
-        
-        found_tech = []
-        for kw in TECHNICAL_SKILL_KEYWORDS:
-            if re.search(r'\b' + re.escape(kw) + r'\b', text_lower):
-                found_tech.append(kw.title())
-
-        found_soft = []
-        for kw in SOFT_SKILL_KEYWORDS:
-            if re.search(r'\b' + re.escape(kw) + r'\b', text_lower):
-                found_soft.append(kw.title())
-
-        emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', raw_text)
-        phones = re.findall(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', raw_text)
-
-        lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
-        candidate_name = lines[0] if lines else "Candidate"
-        if len(candidate_name) > 40 or "@" in candidate_name:
-            candidate_name = "Tishal Mohan"
-
+        text = raw_text.casefold()
+        found = []
+        for keyword in TECHNICAL_SKILL_KEYWORDS:
+            canonical = next((name for name in ALIASES if name.casefold() == keyword), keyword.title())
+            terms = [keyword, *ALIASES.get(canonical, [])]
+            if any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", text) for term in terms):
+                found.append(canonical)
+        soft = [kw.title() for kw in SOFT_SKILL_KEYWORDS if re.search(r"(?<!\w)" + re.escape(kw) + r"(?!\w)", text)]
+        emails = re.findall(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", raw_text)
+        contact = {"email": emails[0] if emails else None}
         return {
-            "contact_info": {
-                "name": candidate_name,
-                "email": emails[0] if emails else "candidate@careermind.ai",
-                "phone": phones[0] if phones else "+1 (555) 019-2834"
-            },
-            "technical_skills": list(set(found_tech)) if found_tech else ["Python", "Machine Learning", "FastAPI", "React", "SQL"],
-            "soft_skills": list(set(found_soft)) if found_soft else ["Problem Solving", "Critical Thinking", "Communication"],
-            "education": [
-                {
-                    "degree": "Bachelor of Science in Computer Science",
-                    "institution": "State University",
-                    "year": "2024"
-                }
-            ],
-            "experience": [
-                {
-                    "title": "Software Engineering Intern / Developer",
-                    "company": "Tech Solutions Inc.",
-                    "duration": "1.5 Years",
-                    "highlights": [
-                        "Developed scalable REST microservices using Python & FastAPI.",
-                        "Optimized frontend components in React for internal dashboard tools."
-                    ]
-                }
-            ],
-            "projects": [
-                {
-                    "name": "AI Career Mentorship Engine",
-                    "tech_stack": ["Python", "FastAPI", "Gemini API", "React"],
-                    "description": "Automated ATS scanning and career recommendation pipeline."
-                }
-            ]
+            "contact": contact,
+            "contact_info": contact,
+            "technical_skills": found,
+            "soft_skills": soft,
+            "tools_frameworks": [],
+            "education": [],
+            "experience": [],
+            "projects": [],
         }

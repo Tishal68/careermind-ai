@@ -23,6 +23,24 @@ class CareerGraphEngine:
                 "salary_range": "$120,000 - $160,000",
                 "career_growth_velocity": "High",
                 "target_level": "Mid-Level"
+            },
+            "data analyst": {
+                "required_skills": ["SQL", "Excel", "Python", "Tableau", "Data Analysis", "Statistics"]
+            },
+            "generative ai engineer": {
+                "required_skills": ["Python", "LLM", "RAG", "Vector Databases", "FastAPI", "Docker"]
+            },
+            "computer vision engineer": {
+                "required_skills": ["Python", "PyTorch", "OpenCV", "Computer Vision", "Deep Learning", "Docker"]
+            },
+            "nlp engineer": {
+                "required_skills": ["Python", "NLP", "PyTorch", "Transformers", "Machine Learning", "Docker"]
+            },
+            "backend developer": {
+                "required_skills": ["Python", "FastAPI", "SQL", "REST API", "Docker", "Git"]
+            },
+            "cloud engineer": {
+                "required_skills": ["AWS", "Linux", "Docker", "Kubernetes", "Terraform", "CI/CD"]
             }
         }
 

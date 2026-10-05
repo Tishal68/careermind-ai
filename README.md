@@ -1,4 +1,11 @@
-# NexPath (CareerMind AI) - Production AI Career Operating System
+# CareerMind AI — Resume match and Ollama career coach
+
+The main workspace now focuses on choosing a job role, matching a resume against
+its core skills, identifying learning steps, and chatting with a local Ollama coach.
+See **[RUN_LOCAL.md](RUN_LOCAL.md)** for setup, how matching works, and local-use scope.
+The older platform features described below remain in the repository.
+
+## Original platform documentation
 
 NexPath is a production-grade, AI-powered Career Operating System built with **Next.js 14+**, **FastAPI**, **SQLAlchemy**, and **Google Gemini AI**. Designed as a high-performance SaaS platform, it empowers users to parse resumes, audit ATS readability, compute skill gaps against specialized tech roles, track weekly learning roadmaps, interact with an AI career coach, and practice real-time mock interviews.
 

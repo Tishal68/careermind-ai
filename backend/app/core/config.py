@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
     DEFAULT_AI_PROVIDER: str = os.getenv("DEFAULT_AI_PROVIDER", "ollama")
 
+    # Fallback can send prompts to another provider; keep it opt-in.
+    AI_FALLBACK_ENABLED: bool = False
+
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",

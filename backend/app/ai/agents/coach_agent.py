@@ -13,7 +13,7 @@ class CoachAgent:
         target_role: str,
         skills: list,
         nex_score: int = 89,
-        provider_name: str = "gemini"
+        provider_name: Optional[str] = None
     ) -> str:
         prompt = USER_COACH_TEMPLATE.format(
             target_role=target_role,

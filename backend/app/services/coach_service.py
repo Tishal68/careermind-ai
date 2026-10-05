@@ -57,6 +57,5 @@ class CoachService:
             query=query,
             target_role=target_role,
             skills=extracted_skills,
-            nex_score=nex_score,
-            provider_name="gemini"
+            nex_score=nex_score
         )

@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any, List
-from app.services.gemini_service import call_gemini_api
+from app.ai.providers.router import ai_router_engine
+from app.ai.prompts.coach_prompts import SYSTEM_COACH_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -9,12 +10,11 @@ class RAGAssistantService:
     @staticmethod
     def generate_chat_response(query: str, chat_history: List[Dict[str, Any]], parsed_resume: Dict[str, Any] = None) -> str:
         resume_context = f"Candidate Skills: {', '.join(parsed_resume.get('technical_skills', []))}" if parsed_resume else ""
-        gemini_prompt = f"""
-Act as NexPath Executive AI Career Coach. Answer the candidate's career question directly, providing actionable, professional, and clear advice.
+        prompt = f"""
 Candidate Question: {query}
 {resume_context}
 """
-        response_text = call_gemini_api(gemini_prompt)
+        response_text = ai_router_engine.generate_text(prompt, system_prompt=SYSTEM_COACH_PROMPT)
         if response_text:
             return response_text
 

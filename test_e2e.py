@@ -16,7 +16,7 @@ def test_full_system():
     print("E2E SYSTEM INTEGRATION & SERVICE DIAGNOSTIC TEST")
     print("==================================================\n")
 
-    client = httpx.Client(timeout=15.0)
+    client = httpx.Client(timeout=60.0)
 
     # 1. Health Check
     try:

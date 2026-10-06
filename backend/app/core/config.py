@@ -1,5 +1,6 @@
 import os
 from typing import List
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     # Ollama AI
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
     OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
+    OLLAMA_API_KEY: SecretStr = SecretStr("")
     DEFAULT_AI_PROVIDER: str = os.getenv("DEFAULT_AI_PROVIDER", "ollama")
 
     # Fallback can send prompts to another provider; keep it opt-in.

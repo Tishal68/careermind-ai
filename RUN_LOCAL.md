@@ -3,6 +3,8 @@
 The main workspace now lets you choose a job role, upload a PDF or DOCX resume,
 see matching and missing skills, and discuss a learning plan with a local career coach.
 
+For hosting with an Ollama Cloud API key, see [RENDER_SETUP.md](RENDER_SETUP.md).
+
 ## Start locally
 
 1. Install Python 3.12, Node.js 20, and Ollama.

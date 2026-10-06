@@ -3,6 +3,7 @@ from unittest.mock import Mock
 import httpx
 import pytest
 from fastapi import HTTPException
+from pydantic import SecretStr
 
 from app.core.config import settings
 from app.ai.providers.ollama import OllamaLLMProvider
@@ -70,3 +71,36 @@ def test_new_rag_path_uses_ollama_and_domain_instructions(monkeypatch):
         return httpx.Response(200, json={"message": {"content": "Practice Python APIs."}}, request=httpx.Request("POST", url))
     monkeypatch.setattr(httpx, "post", post)
     assert RAGAssistantService.generate_chat_response("What should I learn?", [], {"technical_skills": ["Python"]}) == "Practice Python APIs."
+
+
+def test_cloud_key_sent_only_in_backend_authorization_header(monkeypatch):
+    monkeypatch.setattr(settings, "OLLAMA_API_KEY", SecretStr("test-cloud-secret"))
+    def post(url, **kwargs):
+        assert url == "https://ollama.com/api/chat"
+        assert kwargs["headers"] == {"Authorization": "Bearer test-cloud-secret"}
+        assert "test-cloud-secret" not in str(kwargs["json"])
+        assert kwargs["json"]["model"] == "gemma4:31b"
+        return httpx.Response(200, json={"message": {"content": "Focus on Python."}}, request=httpx.Request("POST", url))
+    monkeypatch.setattr(httpx, "post", post)
+    provider = OllamaLLMProvider(base_url="https://ollama.com", model="gemma4:31b")
+    assert provider.generate_text("What skill should I learn?") == "Focus on Python."
+
+
+def test_local_ollama_does_not_require_key(monkeypatch):
+    def post(url, **kwargs):
+        assert kwargs["headers"] == {}
+        return httpx.Response(200, json={"message": {"content": "Learn Python."}}, request=httpx.Request("POST", url))
+    monkeypatch.setattr(httpx, "post", post)
+    assert OllamaLLMProvider(api_key="").generate_text("Career advice") == "Learn Python."
+
+
+@pytest.mark.parametrize("status,setting", [(401, "OLLAMA_API_KEY"), (403, "OLLAMA_API_KEY"), (404, "OLLAMA_MODEL"), (429, "usage limit")])
+def test_cloud_errors_are_actionable_without_exposing_key(monkeypatch, status, setting):
+    monkeypatch.setattr(httpx, "post", lambda url, **kwargs: httpx.Response(
+        status, json={"error": "private upstream diagnostic"}, request=httpx.Request("POST", url)
+    ))
+    with pytest.raises(HTTPException) as error:
+        OllamaLLMProvider(api_key="test-cloud-secret").generate_text("Career advice")
+    assert setting in error.value.detail
+    assert "test-cloud-secret" not in error.value.detail
+    assert "private upstream diagnostic" not in error.value.detail

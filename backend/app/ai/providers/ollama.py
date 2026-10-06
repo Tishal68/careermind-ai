@@ -8,11 +8,12 @@ from app.ai.prompts.coach_prompts import STRICT_CAREER_GUARDRAIL
 
 
 class OllamaLLMProvider(BaseLLMProvider):
-    """Local Ollama inference with career instructions and explicit failures."""
+    """Local or hosted Ollama inference with optional server-side authentication."""
 
-    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None, api_key: Optional[str] = None):
         self.base_url = (base_url or settings.OLLAMA_BASE_URL).rstrip("/")
         self.model = model or settings.OLLAMA_MODEL
+        self.api_key = api_key if api_key is not None else settings.OLLAMA_API_KEY.get_secret_value()
         self.timeout = 180.0
 
     def _generate(self, prompt: str, system_prompt: Optional[str] = None, output_format=None) -> str:
@@ -32,14 +33,26 @@ class OllamaLLMProvider(BaseLLMProvider):
         if output_format is not None:
             payload["format"] = output_format
         try:
-            response = httpx.post(f"{self.base_url}/api/chat", json=payload, timeout=self.timeout)
+            headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+            response = httpx.post(f"{self.base_url}/api/chat", json=payload, headers=headers, timeout=self.timeout)
             response.raise_for_status()
             content = response.json()["message"]["content"]
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("Empty Ollama reply")
             return content.strip()
+        except httpx.HTTPStatusError as exc:
+            code = exc.response.status_code
+            if code in (401, 403):
+                detail = "Ollama authentication failed. Check OLLAMA_API_KEY in the backend environment."
+            elif code == 404:
+                detail = "Ollama endpoint or model was not found. Check OLLAMA_BASE_URL and OLLAMA_MODEL."
+            elif code == 429:
+                detail = "Ollama usage limit reached. Check your account limits or try again later."
+            else:
+                detail = "The Ollama server could not complete the request. Please try again."
+            raise HTTPException(status_code=503, detail=detail) from exc
         except (httpx.HTTPError, KeyError, ValueError, TypeError) as exc:
-            raise HTTPException(status_code=503, detail="Ollama is unavailable or returned an invalid reply. Start Ollama and pull the configured model, then retry.") from exc
+            raise HTTPException(status_code=503, detail="Ollama is unreachable or returned an invalid reply. Check the configured server address and model, then retry.") from exc
 
     def generate_text(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         return self._generate(prompt, system_prompt)

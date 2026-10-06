@@ -2,7 +2,7 @@
 
 The main workspace now focuses on choosing a job role, matching a resume against
 its core skills, identifying learning steps, and chatting with a local Ollama coach.
-See **[RUN_LOCAL.md](RUN_LOCAL.md)** for setup, how matching works, and local-use scope.
+See **[RUN_LOCAL.md](RUN_LOCAL.md)** for local setup and **[RENDER_SETUP.md](RENDER_SETUP.md)** for Render with Ollama Cloud.
 The older platform features described below remain in the repository.
 
 ## Original platform documentation
@@ -58,17 +58,7 @@ careermind-ai/
 
 ## 🌐 Deploying on Render
 
-NexPath is fully configured for 1-click deployment on [Render](https://render.com).
-
-### Option 1: Deploy with Render Blueprint (`render.yaml`)
-1. Push this repository to GitHub: `https://github.com/Tishal68/careermind-ai.git`
-2. Go to [Render Dashboard](https://dashboard.render.com/) $\rightarrow$ Click **New +** $\rightarrow$ Select **Blueprint**.
-3. Connect your GitHub repository `Tishal68/careermind-ai`.
-4. Render will automatically detect `render.yaml` and configure:
-   - **`nexpath-backend`**: FastAPI Web Service (`uvicorn app.main:app --host 0.0.0.0 --port $PORT`)
-   - **`nexpath-frontend`**: Next.js Web Service (`npm run build` & `npm start`)
-5. Add your `GEMINI_API_KEY` under Environment Variables in the backend service.
-6. Click **Apply**. Render will deploy both services automatically!
+Use the root Dockerfile and the updated Docker Blueprint. Add your Ollama Cloud key and model settings as described in **[RENDER_SETUP.md](RENDER_SETUP.md)**, then redeploy. The Docker service starts both Next.js and FastAPI.
 
 ---
 

@@ -1,19 +1,24 @@
 services:
-  # Unified Full-Stack Web Service (Serves both Next.js Website & FastAPI Backend)
   - type: web
     name: careermind-ai
-    env: python
+    runtime: docker
     region: oregon
-    buildCommand: npm --prefix frontend install && npm --prefix frontend run build && pip install -r backend/requirements.txt
-    startCommand: python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: NODE_VERSION
-        value: 20.18.0
-      - key: GEMINI_API_KEY
+      - key: DEFAULT_AI_PROVIDER
+        value: ollama
+      - key: AI_FALLBACK_ENABLED
+        value: "false"
+      - key: OLLAMA_BASE_URL
+        value: https://ollama.com
+      - key: OLLAMA_MODEL
+        value: gemma4:31b
+      - key: OLLAMA_API_KEY
         sync: false
       - key: SECRET_KEY
         generateValue: true
+      # Ephemeral demo storage; configure persistent storage before retaining user data.
       - key: DATABASE_URL
         value: sqlite:///./careermind.db

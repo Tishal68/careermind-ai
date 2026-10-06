@@ -1,5 +1,6 @@
 import json
 from typing import Optional, Dict, Any
+from urllib.parse import urlparse
 import httpx
 from fastapi import HTTPException
 from app.core.config import settings
@@ -15,6 +16,8 @@ class OllamaLLMProvider(BaseLLMProvider):
         self.model = model or settings.OLLAMA_MODEL
         self.api_key = api_key if api_key is not None else settings.OLLAMA_API_KEY.get_secret_value()
         self.timeout = 180.0
+        self.num_predict = 384
+        self.num_ctx = 8192
 
     def _generate(self, prompt: str, system_prompt: Optional[str] = None, output_format=None) -> str:
         system = system_prompt or ""
@@ -24,7 +27,9 @@ class OllamaLLMProvider(BaseLLMProvider):
             "model": self.model,
             "stream": False,
             "keep_alive": "30m",
-            "options": {"temperature": 0.2, "top_p": 0.9, "num_ctx": 8192, "num_predict": 384},
+            "options": {"temperature": 0.2, "top_p": 0.9,
+                        "num_ctx": max(self.num_ctx, 32768 if len(prompt) > 20000 else 8192),
+                        "num_predict": self.num_predict},
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
@@ -40,6 +45,8 @@ class OllamaLLMProvider(BaseLLMProvider):
             if not isinstance(content, str) or not content.strip():
                 raise ValueError("Empty Ollama reply")
             return content.strip()
+        except httpx.TimeoutException as exc:
+            raise HTTPException(status_code=503, detail="Ollama took too long to respond. Try a faster model or a shorter job description, then retry.") from exc
         except httpx.HTTPStatusError as exc:
             code = exc.response.status_code
             if code in (401, 403):
@@ -58,7 +65,13 @@ class OllamaLLMProvider(BaseLLMProvider):
         return self._generate(prompt, system_prompt)
 
     def generate_json(self, prompt: str, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        text = self._generate(prompt + "\nRespond with a valid JSON object.", output_format=schema or "json")
+        cloud = urlparse(self.base_url).hostname == "ollama.com"
+        instruction = "\nRespond with only a valid JSON object, without Markdown."
+        if schema:
+            instruction += "\nRequired JSON schema: " + json.dumps(schema)
+        text = self._generate(prompt + instruction, output_format=None if cloud else schema or "json")
+        if text.startswith("```") and text.endswith("```"):
+            text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         try:
             result = json.loads(text)
             if not isinstance(result, dict):

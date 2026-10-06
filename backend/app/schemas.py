@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 
 
 # Auth
@@ -122,6 +122,28 @@ class CareerReportResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ResearchRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+    resume_id: int = Field(gt=0)
+    job_role: str = Field(min_length=2, max_length=100)
+    location: str = Field(min_length=2, max_length=150)
+    experience_level: str = Field(min_length=2, max_length=50)
+    remote: bool = False
+    company: str = Field(default="", max_length=150)
+    job_url: str = Field(default="", max_length=2000)
+    job_description: str = Field(default="", max_length=16000)
+    search_market: bool = True
+    refresh: bool = False
+
+    @model_validator(mode="after")
+    def require_source(self):
+        if not self.search_market and not (self.job_url or self.job_description):
+            raise ValueError("Add a company job URL or paste its job description, or enable market research.")
+        if self.job_description and len(self.job_description) < 80:
+            raise ValueError("Paste the full job description (at least 80 characters).")
+        return self
 
 
 # Roadmap & Projects

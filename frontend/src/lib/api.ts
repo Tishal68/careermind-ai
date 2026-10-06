@@ -39,7 +39,9 @@ export async function fetchApi<T>(
     const data = isJson ? await response.json() : await response.text();
 
     if (!response.ok) {
-      const errorMessage = isJson && data.detail ? data.detail : 'An unexpected API error occurred';
+      const errorMessage = isJson && Array.isArray(data.detail)
+        ? data.detail.map((item: any) => `${item.loc?.slice(1).join('.') || 'Input'}: ${item.msg}`).join('; ')
+        : isJson && typeof data.detail === 'string' ? data.detail : 'An unexpected API error occurred';
       throw new ApiError(errorMessage, response.status, data);
     }
 

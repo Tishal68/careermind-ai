@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -7,6 +7,10 @@ from app.deps import get_current_user
 from app.models.user import User
 from app.models.session import ResumeSession
 from app.models.report import CareerReport
+from app.models.research import ResearchJob
+from app.schemas import ResearchRequest
+from app.services.job_research import public_url
+from app.services.research_worker import run_research, expired
 from app.schemas import (
     AnalysisRequest, CareerReportResponse, DashboardOverviewResponse,
     RecentReportSummary, RoadmapResponse, ProjectRecommendation
@@ -17,6 +21,45 @@ from app.intelligence.learning_engine import learning_engine
 from app.intelligence.recommendation_engine import recommendation_engine
 
 router = APIRouter(tags=["Reports & Analytics"])
+
+
+@router.post("/analysis/research", status_code=202)
+def start_research(req: ResearchRequest, background: BackgroundTasks,
+                   db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    resume = db.query(ResumeSession).filter(ResumeSession.id == req.resume_id,
+                                          ResumeSession.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(404, "Resume not found")
+    if req.job_url:
+        public_url(req.job_url)
+    active = db.query(ResearchJob).filter(ResearchJob.user_id == current_user.id,
+                                        ResearchJob.status.in_(["pending", "running"])).all()
+    for job in active:
+        if not expired(job):
+            raise HTTPException(409, "Research is already running. Wait for it to finish.")
+        job.status, job.error, job.request_data = "failed", "Research interrupted or timed out. Please retry.", {}
+    job = ResearchJob(user_id=current_user.id, request_data=req.model_dump())
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    background.add_task(run_research, job.id)
+    return {"id": job.id, "status": "pending"}
+
+
+@router.get("/analysis/research/{job_id}")
+def research_status(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = db.query(ResearchJob).filter(ResearchJob.id == job_id, ResearchJob.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(404, "Research not found")
+    if job.status in ("pending", "running") and expired(job):
+        job.status, job.error, job.request_data = "failed", "Research interrupted or timed out. Please retry.", {}
+        db.commit()
+    report = None
+    if job.report_id:
+        report = db.query(CareerReport).filter(CareerReport.id == job.report_id,
+                                             CareerReport.user_id == current_user.id).first()
+    return {"id": job.id, "status": job.status, "error": job.error,
+            "report": CareerReportResponse.model_validate(report).model_dump() if report else None}
 
 
 @router.post("/analysis/analyze", response_model=CareerReportResponse, status_code=201)

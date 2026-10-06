@@ -1,7 +1,8 @@
 # CareerMind AI with Ollama
 
-The main workspace now lets you choose a job role, upload a PDF or DOCX resume,
-see matching and missing skills, and discuss a learning plan with a local career coach.
+The main workspace accepts any job role, a PDF or DOCX resume, location and experience
+level. It compares job requirements with resume evidence and supports career coaching.
+See [JOB_RESEARCH.md](JOB_RESEARCH.md) for live research and company comparisons.
 
 For hosting with an Ollama Cloud API key, see [RENDER_SETUP.md](RENDER_SETUP.md).
 
@@ -27,8 +28,10 @@ For hosting with an Ollama Cloud API key, see [RENDER_SETUP.md](RENDER_SETUP.md)
    npm run dev
    ```
 
-5. Open http://localhost:3000. Choose a role, upload a resume, and click
-   **Check role match**. Then open **Career coach**.
+5. Open http://localhost:3000. Enter a role, location and experience level, then upload
+   a resume. Add `OLLAMA_API_KEY` for live web research. Without a key, paste a full
+   company job description and turn off **Also research current market openings**.
+   Click **Research my role match**, then open **Career coach**.
 
 The frontend proxies `/api/v1` to the backend. For a different backend port, set `BACKEND_URL` before starting or building Next.js (for example `$env:BACKEND_URL="http://127.0.0.1:8001"`). Local model replies may take a minute or longer; the proxy allows up to 210 seconds and the Ollama request up to 180 seconds. Configure `OLLAMA_BASE_URL` and
 `OLLAMA_MODEL` in `backend/.env` to use another local Ollama instance or model.
@@ -36,6 +39,16 @@ The router and resume coach respect `DEFAULT_AI_PROVIDER` from commit `f4de0e0`,
 features elsewhere in the repository still use their existing provider.
 
 ## What the result means
+
+New reports show requirement coverage for each opening, quoted evidence, a dated
+research sample, and company-specific priorities. Market frequencies require at least
+three comparable postings and are not market-wide statistics. Pasted descriptions
+and local inference need no web search key. Research runs in a background task; reload
+the page to reconnect. A stopped server interrupts running work; retry after timeout.
+
+### Legacy baseline reports
+
+The older `/analysis/analyze` endpoint is retained for existing clients:
 
 - Nine technology roles have explicit core skill lists.
 - Skills overlap is `matched core skills / total core skills × 100`.
@@ -65,7 +78,7 @@ secrets. A remote backend cannot reach Ollama on your laptop via its own localho
 
 ```powershell
 cd backend
-py -m pytest tests/test_career_flow.py tests/test_provider_compatibility.py -q
+py -m pytest tests/test_career_flow.py tests/test_provider_compatibility.py tests/test_job_research.py -q
 cd ../frontend
 npm run build
 ```

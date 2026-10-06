@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Input } from '@/components/UIComponents';
 import { fetchApi } from '@/lib/api';
+import ResearchResults from '@/components/ResearchResults';
 import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, User, Mail, Phone, Code, GraduationCap, Briefcase, Award,
   Target, Sparkles, AlertTriangle, Lightbulb, CheckSquare, Square, Clock,
@@ -123,6 +124,7 @@ export const RoleSelector: React.FC<any> = ({ resumes, selectedResumeId, setSele
 
 export const GapBreakdown: React.FC<{ report: any }> = ({ report }) => {
   if (!report) return null;
+  if (report.analysis_data?.research) return <ResearchResults report={report} />;
   const gap = report.gap_analysis || {};
 
   return (

@@ -5,6 +5,7 @@ from app.models.report import CareerReport
 from app.models.chat import ChatSession, ChatMessage, CareerMemory
 from app.models.interview import InterviewSession
 from app.models.profile import CareerProfile, ResumeVersion
+from app.models.research import ResearchJob
 
 __all__ = [
     "Base",

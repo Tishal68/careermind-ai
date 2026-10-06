@@ -44,11 +44,29 @@ class CoachService:
             "matched_skills": (report.analysis_data or {}).get("matched_skills", []),
             "missing_skills": (report.gap_analysis or {}).get("missing_skills", []),
             "learning_steps": (report.gap_analysis or {}).get("learning_steps", []),
+            "research": (report.analysis_data or {}).get("research"),
         }
 
     @staticmethod
     def generate_coach_response(db: Session, query: str, chat_session: ChatSession, report: CareerReport) -> str:
         context = CoachService.report_context(db, report)
+        if context.get("research"):
+            snapshot = dict(context["research"])
+            # Keep the dated source links, evidence and company target within context.
+            def compact_job(job):
+                return {"title": job["title"], "url": job["url"], "coverage": job["coverage"],
+                        "required_gaps": job["required_gaps"], "retrieved_at": job["retrieved_at"],
+                        "availability": job["availability"],
+                        "requirements": [{"name": r["name"], "importance": r["importance"],
+                                          "resume_status": r["resume_status"], "resume_quote": r["resume_quote"][:180]}
+                                         for r in job["requirements"][:12]]}
+            snapshot["best_fit_openings"] = [compact_job(j) for j in snapshot.get("best_fit_openings", [])[:3]]
+            if snapshot.get("company_match"):
+                snapshot["company_match"] = compact_job(snapshot["company_match"])
+            snapshot["typical_requirements"] = [{"name": r["name"], "posting_count": r["posting_count"],
+                                                 "source_urls": r["source_urls"]}
+                                                for r in snapshot.get("typical_requirements", [])[:12]]
+            context["research"] = snapshot
         resume = db.query(ResumeSession).filter(
             ResumeSession.id == report.resume_session_id,
             ResumeSession.user_id == report.user_id,

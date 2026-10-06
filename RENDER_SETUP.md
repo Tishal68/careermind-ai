@@ -39,8 +39,10 @@ required for resume matching or Ollama coaching.
 
 1. Redeploy the latest commit after saving the environment variables.
 2. Open `/api/v1/health` on the service URL and check for `healthy`.
-3. Open the site, upload a test resume, and select a job role.
-4. Run the analysis, then ask the Career coach what to learn first.
+3. Open the site, upload a test resume, and enter a role, location and experience level.
+4. Click **Research my role match**. Check the sourced openings and requirement
+   evidence, then ask the Career coach what to learn first. Try a company job URL
+   or pasted description as well.
 5. An authentication error means the key needs checking. A model-not-found
    error means the cloud model name or base URL needs checking. A usage-limit
    error means the cloud account's limit has been reached.
@@ -48,6 +50,25 @@ required for resume matching or Ollama coaching.
 The local automated tests mock cloud responses and verify the request headers,
 payload, and error handling. A successful live cloud deployment still requires
 a valid key, model access, and available account quota.
+
+## Live job research
+
+No additional API key is required: `OLLAMA_API_KEY` also authenticates Ollama's
+`https://ollama.com/api/web_search` and `/api/web_fetch` services. Research always
+uses Ollama for extraction; `DEFAULT_AI_PROVIDER` controls the existing coach router.
+The model must reliably follow JSON instructions. Cloud does not support Ollama's
+`format` schema parameter, so the app validates outputs and retries once.
+See https://docs.ollama.com/capabilities/web-search and
+https://docs.ollama.com/capabilities/structured-outputs.
+
+The app creates a `research_jobs` table on startup through the existing SQLAlchemy
+initialization. Reports and task status use the configured database. The lightweight
+background worker supports two concurrent research tasks per process; each user can
+have one active task. Status polling avoids holding a browser request open during
+inference. Interrupted tasks become retryable after ten minutes; they are not resumed
+automatically after a restart. Use a durable external queue before scaling workers.
+Public source text is cached in memory for up to 24 hours (maximum 128 searches),
+without resumes or pasted descriptions. **Refresh research** bypasses that cache.
 
 ## Demo storage and access
 

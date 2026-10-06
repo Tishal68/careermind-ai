@@ -1,8 +1,11 @@
 # CareerMind AI — Resume match and Ollama career coach
 
-The main workspace now focuses on choosing a job role, matching a resume against
-its core skills, identifying learning steps, and chatting with a local Ollama coach.
+The main workspace accepts any job role, location and experience level. It researches
+job postings through Ollama web search, ranks comparable openings by resume evidence,
+summarizes recurring requirements, and compares an optional company job description.
+An Ollama career coach uses the saved results to help with learning and applications.
 See **[RUN_LOCAL.md](RUN_LOCAL.md)** for local setup and **[RENDER_SETUP.md](RENDER_SETUP.md)** for Render with Ollama Cloud.
+See **[JOB_RESEARCH.md](JOB_RESEARCH.md)** for behavior, limits, and API details.
 The older platform features described below remain in the repository.
 
 ## Original platform documentation

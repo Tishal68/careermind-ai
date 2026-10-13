@@ -8,6 +8,7 @@ from app.core.database import Base, engine, SessionLocal
 from app.core.security import verify_password
 from app.api import api_router
 from app.models import User
+from app.core.request_limits import RequestLimitsMiddleware
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -24,6 +25,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(RequestLimitsMiddleware)
+
 Base.metadata.create_all(bind=engine)
 
 
@@ -36,6 +39,16 @@ with SessionLocal() as db:
             user.is_active = False
             user.is_superuser = False
     db.commit()
+
+@app.middleware("http")
+async def response_security(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if request.url.path.startswith(settings.API_V1_STR):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 # Mount API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
@@ -58,31 +71,19 @@ if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, "index.html")):
         clean_path = full_path.strip("/")
 
         root_path = os.path.realpath(STATIC_DIR)
-        candidate = os.path.realpath(os.path.join(root_path, clean_path))
-        if os.path.commonpath([root_path, candidate]) != root_path:
-            return JSONResponse(status_code=404, content={"detail": "Not found"})
+        candidates = [clean_path, os.path.join(clean_path, "index.html"), clean_path + ".html"] if clean_path else ["index.html"]
+        for relative in candidates:
+            candidate = os.path.realpath(os.path.join(root_path, relative))
+            try:
+                inside = os.path.commonpath([root_path, candidate]) == root_path
+            except ValueError:
+                inside = False
+            if not inside:
+                return JSONResponse(status_code=404, content={"detail": "Not found"})
+            if os.path.isfile(candidate):
+                return FileResponse(candidate)
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
 
-        # 1. Root route
-        if not clean_path:
-            return FileResponse(os.path.join(STATIC_DIR, "index.html"))
-
-        # 2. Exact file (e.g. favicon.ico, images, .txt)
-        file_path = os.path.join(STATIC_DIR, clean_path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-
-        # 3. Directory with index.html (e.g. login/index.html, dashboard/index.html)
-        dir_html = os.path.join(STATIC_DIR, clean_path, "index.html")
-        if os.path.isfile(dir_html):
-            return FileResponse(dir_html)
-
-        # 4. Suffix .html (e.g. login.html, dashboard.html)
-        html_path = os.path.join(STATIC_DIR, f"{clean_path}.html")
-        if os.path.isfile(html_path):
-            return FileResponse(html_path)
-
-        # 5. SPA fallback
-        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 else:
     @app.get("/")
     def root():

@@ -6,16 +6,16 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 # Auth
 class UserBase(BaseModel):
     email: EmailStr
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(default=None, max_length=255)
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, json_schema_extra={"example": "Password123!"})
+    password: str = Field(..., min_length=12, max_length=1024, json_schema_extra={"example": "Password123!"})
 
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=1024)
 
 
 class UserResponse(UserBase):
@@ -101,9 +101,9 @@ class ResumeResponse(BaseModel):
 # Analysis
 class AnalysisRequest(BaseModel):
     resume_id: int
-    field: str = Field(..., json_schema_extra={"example": "Software Development"})
-    job_role: str = Field(..., json_schema_extra={"example": "AI Engineer"})
-    experience_level: str = Field(..., json_schema_extra={"example": "Mid-Level"})
+    field: str = Field(..., min_length=1, max_length=100, json_schema_extra={"example": "Software Development"})
+    job_role: str = Field(..., min_length=1, max_length=100, json_schema_extra={"example": "AI Engineer"})
+    experience_level: str = Field(..., min_length=1, max_length=50, json_schema_extra={"example": "Mid-Level"})
 
 
 class CareerReportResponse(BaseModel):
@@ -200,8 +200,8 @@ class ChatHistoryResponse(BaseModel):
 
 # Interview Simulator
 class StartInterviewRequest(BaseModel):
-    interview_type: str = Field("Technical", json_schema_extra={"example": "Technical"})
-    target_role: str = Field("AI Engineer", json_schema_extra={"example": "AI Engineer"})
+    interview_type: str = Field("Technical", pattern="^(Technical|Behavioral|HR|Mixed)$", json_schema_extra={"example": "Technical"})
+    target_role: str = Field("AI Engineer", min_length=2, max_length=100, json_schema_extra={"example": "AI Engineer"})
 
 
 class InterviewQuestionItem(BaseModel):
@@ -223,9 +223,9 @@ class InterviewSessionResponse(BaseModel):
 
 
 class EvaluateAnswerRequest(BaseModel):
-    session_id: int
-    question: str
-    user_answer: str
+    session_id: int = Field(gt=0)
+    question: str = Field(min_length=1, max_length=4000)
+    user_answer: str = Field(min_length=1, max_length=10000)
 
 
 class AnswerFeedbackResponse(BaseModel):

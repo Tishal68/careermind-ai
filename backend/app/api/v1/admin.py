@@ -1,3 +1,8 @@
+from app.models.research import ResearchJob
+from app.services.research_worker import expired
+import os
+from app.core.config import settings
+from app.services.upload_safety import remove_owned_directory
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -36,6 +41,10 @@ def delete_user(user_id: int, db: Session = Depends(get_db), admin_user: User = 
         raise HTTPException(status_code=404, detail="User not found.")
     if user_to_delete.id == admin_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete your own admin account.")
+    jobs = db.query(ResearchJob).filter(ResearchJob.user_id == user_id, ResearchJob.status.in_(["pending", "running"])).all()
+    if any(not expired(job) for job in jobs):
+        raise HTTPException(409, "Wait for this account's research to finish before deleting it.")
+    remove_owned_directory(os.path.join(settings.UPLOAD_DIR, f"user_{user_id}"), settings.UPLOAD_DIR)
     db.delete(user_to_delete)
     db.commit()
     return None

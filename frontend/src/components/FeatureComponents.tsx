@@ -214,17 +214,19 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<any>(null);
+  const [evaluationError, setEvaluationError] = useState('');
 
   const handleSubmit = async () => {
     if (!answer.trim() || isSubmitting) return;
     setIsSubmitting(true);
+    setEvaluationError('');
     try {
       const data = await fetchApi<any>('/interview/evaluate', { method: 'POST', body: JSON.stringify({ session_id: session.id, question, user_answer: answer }) });
       setFeedback(data);
       if (data.next_question) setQuestion(data.next_question);
       setAnswer('');
-    } catch {
-      alert('Evaluation error');
+    } catch (err: any) {
+      setEvaluationError(err.message || 'Evaluation failed. Please retry.');
     } finally {
       setIsSubmitting(false);
     }
@@ -234,7 +236,8 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
     <div className="space-y-6">
       <Card glass className="space-y-6 border-purple-500/30">
         <div className="flex items-start gap-3"><BrainCircuit className="w-6 h-6 text-purple-400 shrink-0" /><p className="text-lg font-bold text-white">{question}</p></div>
-        <textarea rows={5} placeholder="Type response..." value={answer} onChange={e => setAnswer(e.target.value)} className="w-full glass-input rounded-xl p-4 text-sm" />
+        {evaluationError && <p role="alert" className="text-rose-300">{evaluationError}</p>}
+        <textarea aria-label="Interview answer" maxLength={10000} rows={5} placeholder="Type response..." value={answer} onChange={e => setAnswer(e.target.value)} className="w-full glass-input rounded-xl p-4 text-sm" />
         <Button onClick={handleSubmit} isLoading={isSubmitting} disabled={!answer.trim()} className="w-full" rightIcon={<Send className="w-4 h-4" />}>Submit Answer & Evaluate</Button>
       </Card>
       {feedback && (

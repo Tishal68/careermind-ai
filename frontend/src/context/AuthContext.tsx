@@ -47,11 +47,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try { await fetchApi('/auth/logout', { method: 'POST' }); }
+    catch { /* Clear this device even if the server is temporarily unreachable. */ }
+    finally {
     localStorage.removeItem('careermind_token');
     localStorage.removeItem('careermind_research_job');
     setToken(null);
     setUser(null);
+    }
   };
 
   return (

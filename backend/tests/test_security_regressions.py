@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base, get_db
 from app.core.config import Settings
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.api.v1 import auth, admin, resume, settings
+from app.api.v1 import auth, admin, resume, settings, interview, reports
 from app.models.user import User
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def secured():
     Base.metadata.create_all(engine)
     db = sessionmaker(bind=engine)()
     app = FastAPI()
-    for router in [auth.router, admin.router, resume.router, settings.router]:
+    for router in [auth.router, admin.router, resume.router, settings.router, interview.router, reports.router]:
         app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_db] = lambda: db
     with TestClient(app) as client:

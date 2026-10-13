@@ -142,12 +142,12 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
     recent = db.query(CareerReport).filter(CareerReport.user_id == current_user.id).order_by(CareerReport.created_at.desc()).limit(5).all()
     
     return DashboardOverviewResponse(
-        ats_score=latest_report.ats_score if latest_report else 82.0,
-        resume_score=latest_report.resume_score if latest_report else 80.0,
-        readiness_score=latest_report.readiness_score if latest_report else 75.0,
-        interview_score=84.5,
-        learning_progress_percent=65.0,
-        completed_projects_count=2,
+        ats_score=latest_report.ats_score if latest_report else 0.0,
+        resume_score=latest_report.resume_score if latest_report else 0.0,
+        readiness_score=latest_report.readiness_score if latest_report else 0.0,
+        interview_score=0.0,
+        learning_progress_percent=0.0,
+        completed_projects_count=0,
         resumes_count=resumes_count,
         reports_count=reports_count,
         recent_reports=[

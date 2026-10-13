@@ -10,18 +10,20 @@ export default function InterviewPage() {
   const [session, setSession] = useState<any>(null);
   const [interviewType, setInterviewType] = useState('Technical');
   const [targetRole, setTargetRole] = useState(JOB_ROLES[0]);
+  const [error, setError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
 
   const handleStartSession = async () => {
     setIsStarting(true);
+    setError('');
     try {
       const data = await fetchApi<any>('/interview/start', {
         method: 'POST',
         body: JSON.stringify({ interview_type: interviewType, target_role: targetRole }),
       });
       setSession(data);
-    } catch {
-      setSession({ id: 101, interview_type: interviewType, target_role: targetRole, overall_score: 88.5, history: [{ question: `Explain vector embeddings and cosine similarity in RAG pipelines for ${targetRole}.` }] });
+    } catch (err: any) {
+      setError(err.message || 'The interview provider is unavailable. Please retry.');
     } finally {
       setIsStarting(false);
     }
@@ -30,6 +32,7 @@ export default function InterviewPage() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
       <div><h1 className="text-3xl font-extrabold text-white flex items-center gap-3"><BrainCircuit className="w-8 h-8 text-emerald-400" />AI Mock Interview Simulator</h1><p className="text-slate-400 text-sm mt-1">Practice Technical, HR, Behavioral, and Mixed interview scenarios.</p></div>
+      {error && <p role="alert" className="text-rose-300">{error}</p>}
       {!session ? (
         <Card glass className="max-w-2xl mx-auto p-8 space-y-6">
           <div className="text-center"><Zap className="w-6 h-6 text-emerald-400 mx-auto mb-2" /><h2 className="text-xl font-bold text-white">Configure Interview Arena</h2></div>

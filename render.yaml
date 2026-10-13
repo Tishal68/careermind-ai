@@ -3,6 +3,11 @@ services:
     name: careermind-ai
     runtime: docker
     region: oregon
+    plan: starter
+    disk:
+      name: careermind-data
+      mountPath: /app/data
+      sizeGB: 1
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/v1/health
@@ -19,6 +24,10 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
-      # Ephemeral demo storage; configure persistent storage before retaining user data.
+      - key: ENVIRONMENT
+        value: production
+      - key: UPLOAD_DIR
+        value: /app/data/uploads/resumes
+      # One-instance deployment: SQLite and uploads share a persistent disk.
       - key: DATABASE_URL
-        value: sqlite:///./careermind.db
+        value: sqlite:////app/data/careermind.db

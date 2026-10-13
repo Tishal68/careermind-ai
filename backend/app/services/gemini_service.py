@@ -24,10 +24,10 @@ def call_gemini_api(prompt: str) -> str:
                 if response and response.text:
                     return response.text.strip()
             except Exception as inner_e:
-                logger.warning(f"Gemini model {model_name} failed: {inner_e}")
+                logger.warning("Gemini model request failed (%s)", type(inner_e).__name__)
                 continue
     except Exception as e:
-        logger.error(f"Gemini API Client error: {e}")
+        logger.error("Gemini API request failed (%s)", type(e).__name__)
     return ""
 
 

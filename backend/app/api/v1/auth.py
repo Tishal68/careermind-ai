@@ -1,3 +1,8 @@
+import hashlib
+import jwt
+from datetime import datetime, timezone
+from app.models.revoked_token import RevokedToken
+from app.deps import oauth2_scheme
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -41,3 +46,12 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def read_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/logout", status_code=204)
+def logout(token: str = Depends(oauth2_scheme), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    db.query(RevokedToken).filter(RevokedToken.expires_at < datetime.now(timezone.utc)).delete()
+    db.merge(RevokedToken(token_hash=hashlib.sha256(token.encode()).hexdigest(),
+                         expires_at=datetime.fromtimestamp(payload["exp"], timezone.utc)))
+    db.commit()

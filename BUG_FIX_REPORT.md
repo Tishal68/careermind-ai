@@ -1,3 +1,5 @@
+> Follow-up: see SECURITY_REVIEW.md for the deeper review, the Tailwind dependency resolution, updated test counts, and proposed persistent deployment configuration. Historical remaining findings below describe the first pass.
+
 # CareerMind AI bug fixes — 13 October 2026
 
 Scope: source review of the main branch, backend regression suite, production build, dependency audit, and local browser checks. This is a verified repair pass, not a claim that every possible defect has been eliminated. No production deployment or live provider inference was performed.

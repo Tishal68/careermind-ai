@@ -72,7 +72,7 @@ def test_document_timeout_is_actionable(monkeypatch):
     import subprocess
     import app.services.upload_safety as safety
     monkeypatch.setattr(safety.subprocess, 'run', Mock(side_effect=subprocess.TimeoutExpired('parser',20)))
-    with pytest.raises(ValueError, match='document limits'):
+    with pytest.raises(ValueError, match='took too long'):
         extract_isolated('unused.pdf', '.pdf')
 
 
@@ -168,3 +168,28 @@ def test_api_responses_are_not_cacheable():
     assert response.status_code==401
     assert response.headers['cache-control']=='no-store'
     assert response.headers['x-content-type-options']=='nosniff'
+
+
+def test_document_worker_reads_docx_outside_backend(tmp_path, monkeypatch):
+    from docx import Document
+    document = Document()
+    document.add_paragraph("Resume: Python developer with SQL experience.")
+    document.save(tmp_path / "resume.docx")
+    monkeypatch.chdir(tmp_path)
+    assert "Python developer" in extract_isolated("resume.docx", ".docx")
+
+
+def test_document_worker_reports_empty_document(tmp_path, monkeypatch):
+    from docx import Document
+    Document().save(tmp_path / "empty.docx")
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="No readable text"):
+        extract_isolated("empty.docx", ".docx")
+
+
+def test_document_worker_crash_is_service_error(monkeypatch):
+    import app.services.upload_safety as safety
+    monkeypatch.setattr(safety.subprocess, 'run', Mock(return_value=Mock(returncode=1, stdout='')))
+    with pytest.raises(HTTPException) as exc:
+        extract_isolated('resume.pdf', '.pdf')
+    assert exc.value.status_code == 503

@@ -47,6 +47,8 @@ class ResumeParserService:
                 text = "\n".join(parts)
             else:
                 raise ValueError("Upload a PDF or DOCX resume.")
+        except ValueError:
+            raise
         except Exception as exc:
             raise ValueError("Unable to read this resume. Upload a valid PDF or DOCX file.") from exc
         if len(text) > 100000:

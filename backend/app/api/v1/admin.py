@@ -39,3 +39,16 @@ def delete_user(user_id: int, db: Session = Depends(get_db), admin_user: User = 
     db.delete(user_to_delete)
     db.commit()
     return None
+
+
+@router.post("/users/{user_id}/toggle-admin", response_model=UserAdminItem)
+def toggle_admin(user_id: int, db: Session = Depends(get_db), admin_user: User = Depends(get_current_admin_user)):
+    if user_id == admin_user.id:
+        raise HTTPException(status_code=400, detail="Cannot remove your own administrator access.")
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    user.is_superuser = not user.is_superuser
+    db.commit()
+    db.refresh(user)
+    return user

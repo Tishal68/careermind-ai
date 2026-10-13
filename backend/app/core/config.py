@@ -1,6 +1,7 @@
 import os
+import secrets
 from typing import List
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,7 +17,14 @@ class Settings(BaseSettings):
     )
 
     # JWT Security
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "nexpath-super-secret-jwt-key-2026-production-ready")
+    SECRET_KEY: str = os.getenv("SECRET_KEY") or secrets.token_urlsafe(48)
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret(cls, value):
+        if len(value) < 32 or value in {"nexpath-super-secret-jwt-key-2026-production-ready", "replace-with-a-long-random-value"}:
+            raise ValueError("SECRET_KEY must be a private random value of at least 32 characters.")
+        return value
+
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 

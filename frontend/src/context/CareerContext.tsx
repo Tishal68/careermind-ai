@@ -33,13 +33,14 @@ export const CareerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     try {
+      if (!latestReport) { setCareerProfile(null); setNexScoreBreakdown(null); }
       if (latestReport) {
         setCareerProfile(latestReport);
         setNexScoreBreakdown(latestReport.nex_score_breakdown || {
-          nex_score: latestReport.nex_score || 89.0,
-          ats_compatibility: latestReport.ats_score || 92.0,
-          resume_quality: latestReport.resume_score || 80.0,
-          role_readiness: latestReport.readiness_score || 75.0
+          nex_score: latestReport.nex_score ?? 0,
+          ats_compatibility: latestReport.ats_score ?? 0,
+          resume_quality: latestReport.resume_score ?? 0,
+          role_readiness: latestReport.readiness_score ?? 0
         });
         if (latestReport.job_role) {
           setTargetRole(latestReport.job_role);

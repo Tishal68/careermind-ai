@@ -25,3 +25,5 @@ class User(Base):
     career_memory = relationship("CareerMemory", back_populates="user", uselist=False, cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
     interview_sessions = relationship("InterviewSession", back_populates="user", cascade="all, delete-orphan")
+
+    research_jobs = relationship("ResearchJob", cascade="all, delete-orphan")

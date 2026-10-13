@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Body
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 
 from app.core.database import get_db
 from app.deps import get_current_user
@@ -19,18 +20,20 @@ def get_user_settings(current_user: User = Depends(get_current_user)):
     }
 
 
+class SettingsUpdate(BaseModel):
+    target_job_role: str = Field(default="AI Engineer", min_length=1, max_length=100)
+    preferred_ai_model: str = Field(default="llama3.2", min_length=1, max_length=100)
+    full_name: str = Field(default="", max_length=255)
+
+
 @router.put("/settings")
 def update_user_settings(
-    payload: dict = Body(...),
+    payload: SettingsUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    if "target_job_role" in payload:
-        current_user.target_job_role = payload["target_job_role"]
-    if "preferred_ai_model" in payload:
-        current_user.preferred_ai_model = payload["preferred_ai_model"]
-    if "full_name" in payload:
-        current_user.full_name = payload["full_name"]
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(current_user, key, value)
     db.commit()
     db.refresh(current_user)
     return {"message": "Settings updated successfully", "user": UserResponse.model_validate(current_user)}

@@ -32,6 +32,8 @@ class CareerReport(Base):
     user = relationship("User", back_populates="reports")
     resume_session = relationship("ResumeSession", back_populates="reports")
 
+    research_jobs = relationship("ResearchJob", cascade="all, delete-orphan")
+
     @property
     def resume_id(self) -> int:
         return self.resume_session_id

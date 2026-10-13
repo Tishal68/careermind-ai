@@ -34,11 +34,13 @@ def contains_quote(quote: str, text: str) -> bool:
 def public_url(value: str) -> str:
     """Only forward public HTTPS URLs to Ollama's fetch service, never fetch locally."""
     try:
+        if any(ord(char) < 33 for char in value) or "\\" in value:
+            raise ValueError()
         parts = urlsplit(value)
-        host = (parts.hostname or "").lower()
+        host = (parts.hostname or "").lower().rstrip(".")
         if parts.scheme != "https" or parts.username or parts.password or parts.port not in (None, 443):
             raise ValueError()
-        if not host or "." not in host or host.endswith((".localhost", ".local", ".internal", ".test")):
+        if not host or "." not in host or "%" in host or host.endswith((".localhost", ".local", ".internal", ".test")):
             raise ValueError()
         try:
             address = ipaddress.ip_address(host)
@@ -46,6 +48,12 @@ def public_url(value: str) -> str:
             address = None
         if address is not None and not address.is_global:
             raise ValueError()
+        # Reject legacy numeric IP notations (127.1, octal, hex) and malformed DNS labels.
+        if address is None:
+            import re
+            labels = host.split(".")
+            if not re.fullmatch(r"[a-z]{2,63}", labels[-1]) or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels):
+                raise ValueError()
         query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)
                  if not k.lower().startswith("utm_") and k.lower() not in ("gclid", "fbclid")]
         return urlunsplit(("https", parts.netloc.lower(), parts.path.rstrip("/"), urlencode(query), ""))

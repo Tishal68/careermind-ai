@@ -1,6 +1,9 @@
+from app.core.request_limits import expensive_request
 import os
 import uuid
 import shutil
+from app.core.config import settings
+from app.services.upload_safety import extract_isolated, remove_owned_directory
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
@@ -10,17 +13,21 @@ from app.deps import get_current_user
 from app.models.user import User
 from app.models.session import ResumeSession
 from app.models.report import CareerReport
+from app.models.research import ResearchJob
+from app.services.research_worker import expired
 from app.schemas import ResumeResponse, CareerReportResponse
 from app.services.parser_service import ResumeParserService
 from app.intelligence.command_center import command_center
 
 router = APIRouter(prefix="/resume", tags=["Resume"])
-UPLOAD_DIR = "./uploads/resumes"
+UPLOAD_DIR = settings.UPLOAD_DIR
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 def save_resume_upload(file: UploadFile, user_id: int):
     filename = (file.filename or "resume").replace("\\", "/").rsplit("/", 1)[-1]
+    if len(filename) > 255:
+        raise HTTPException(400, "Resume filename must be at most 255 characters.")
     ext = os.path.splitext(filename)[1].lower()
     if ext not in [".pdf", ".docx"]:
         raise HTTPException(status_code=400, detail="Upload a PDF or DOCX resume.")
@@ -34,7 +41,7 @@ def save_resume_upload(file: UploadFile, user_id: int):
     try:
         with open(saved_path, "wb") as buffer:
             buffer.write(contents)
-        raw_text = ResumeParserService.extract_raw_text(saved_path, ext)
+        raw_text = extract_isolated(saved_path, ext)
     except ValueError as exc:
         os.remove(saved_path)
         os.rmdir(user_dir)
@@ -42,13 +49,15 @@ def save_resume_upload(file: UploadFile, user_id: int):
     return filename, ext, session_uuid, saved_path, raw_text
 
 
-@router.post("/auto-pipeline", tags=["NexPath Auto Pipeline"])
-async def run_auto_pipeline(
+@router.post("/auto-pipeline", tags=["NexPath Auto Pipeline"], dependencies=[Depends(expensive_request)])
+def run_auto_pipeline(
     file: UploadFile = File(...),
     target_role: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if db.query(ResumeSession).filter(ResumeSession.user_id == current_user.id).count() >= 20:
+        raise HTTPException(409, "You have reached the 20-resume limit. Delete an old resume before uploading another.")
     filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, current_user.id)
     parsed = ResumeParserService.parse_resume_content(raw_text)
 
@@ -110,8 +119,10 @@ async def run_auto_pipeline(
     }
 
 
-@router.post("/upload", response_model=ResumeResponse, status_code=status.HTTP_201_CREATED)
-async def upload_resume(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+@router.post("/upload", response_model=ResumeResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(expensive_request)])
+def upload_resume(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if db.query(ResumeSession).filter(ResumeSession.user_id == current_user.id).count() >= 20:
+        raise HTTPException(409, "You have reached the 20-resume limit. Delete an old resume before uploading another.")
     filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, current_user.id)
     parsed = ResumeParserService.parse_resume_content(raw_text)
     record = ResumeSession(user_id=current_user.id, session_uuid=session_uuid, file_name=filename, file_type=ext, file_path=saved_path, raw_text=raw_text, parsed_data=parsed)
@@ -127,12 +138,14 @@ def delete_resume_session(resume_id: int, db: Session = Depends(get_db), current
     if not session_record:
         raise HTTPException(status_code=404, detail="Resume session not found")
 
+    jobs = db.query(ResearchJob).filter(ResearchJob.user_id == current_user.id).all()
+    for job in jobs:
+        if (job.request_data or {}).get("resume_id") == resume_id:
+            if job.status in ("pending", "running") and not expired(job):
+                raise HTTPException(409, "Wait for resume research to finish before deleting it.")
+            db.delete(job)
     session_dir = os.path.dirname(session_record.file_path)
-    if os.path.exists(session_dir):
-        try:
-            shutil.rmtree(session_dir)
-        except Exception:
-            pass
+    remove_owned_directory(session_dir, os.path.join(UPLOAD_DIR, f"user_{current_user.id}"))
 
     db.delete(session_record)
     db.commit()

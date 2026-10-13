@@ -11,8 +11,8 @@ import { Mail, Lock, Sparkles, ArrowRight, Zap, ShieldCheck } from 'lucide-react
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const [email, setEmail] = useState('demo@careermind.ai');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,14 +34,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setTimeout(() => {
-      handleSubmit();
-    }, 100);
-  };
-
   return (
     <div className="min-h-[85vh] flex items-center justify-center px-4 relative">
       <Card glass className="w-full max-w-md p-8 relative z-10">
@@ -49,31 +41,6 @@ export default function LoginPage() {
           <div className="inline-flex p-3 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 mb-4"><Sparkles className="w-6 h-6" /></div>
           <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
           <p className="text-sm text-slate-400">Sign in to access your CareerMind AI workspace</p>
-        </div>
-
-        {/* Quick Access Account Banners */}
-        <div className="mb-6 space-y-2">
-          <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-between text-xs text-indigo-300">
-            <div>
-              <p className="font-semibold text-white">Demo User Account</p>
-              <p className="text-slate-400">demo@careermind.ai</p>
-            </div>
-            <Button type="button" size="sm" variant="outline" onClick={() => handleDemoLogin('demo@careermind.ai', 'Password123!')} leftIcon={<Zap className="w-3.5 h-3.5" />}>
-              Demo Login
-            </Button>
-          </div>
-
-          <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-between text-xs text-purple-300">
-            <div>
-              <p className="font-semibold text-white flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-purple-400" /> Special Admin Access
-              </p>
-              <p className="text-slate-400">admin@careermind.ai</p>
-            </div>
-            <Button type="button" size="sm" variant="outline" className="border-purple-500/40 text-purple-300 hover:bg-purple-500/20" onClick={() => handleDemoLogin('admin@careermind.ai', 'AdminPass123!')} leftIcon={<ShieldCheck className="w-3.5 h-3.5" />}>
-              Admin Login
-            </Button>
-          </div>
         </div>
 
         {error && <div className="mb-6 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs text-center font-medium">{error}</div>}

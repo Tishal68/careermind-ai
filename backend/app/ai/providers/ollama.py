@@ -14,7 +14,7 @@ class OllamaLLMProvider(BaseLLMProvider):
     def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None, api_key: Optional[str] = None):
         self.base_url = (base_url or settings.OLLAMA_BASE_URL).rstrip("/")
         self.model = model or settings.OLLAMA_MODEL
-        self.api_key = api_key if api_key is not None else settings.OLLAMA_API_KEY.get_secret_value()
+        self.api_key = api_key if api_key is not None else (settings.OLLAMA_API_KEY.get_secret_value() if urlparse(self.base_url).hostname == "ollama.com" else "")
         self.timeout = 180.0
         self.num_predict = 384
         self.num_ctx = 8192

@@ -47,7 +47,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <Input label="Full Name" type="text" placeholder="Jane Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} leftIcon={<UserIcon className="w-4 h-4" />} required />
           <Input label="Email Address" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} leftIcon={<Mail className="w-4 h-4" />} required />
-          <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} leftIcon={<Lock className="w-4 h-4" />} required />
+          <Input label="Password (at least 12 characters)" minLength={12} maxLength={1024} type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} leftIcon={<Lock className="w-4 h-4" />} required />
           <Button type="submit" className="w-full mt-2" isLoading={isLoading} rightIcon={<ArrowRight className="w-4 h-4" />}>Create Account</Button>
         </form>
         <p className="text-xs text-center text-slate-400 mt-6">Already have an account? <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold underline underline-offset-4">Sign in</Link></p>

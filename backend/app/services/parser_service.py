@@ -29,7 +29,17 @@ class ResumeParserService:
         try:
             if file_type.lower() == ".pdf":
                 with pdfplumber.open(file_path) as pdf:
-                    text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+                    if len(pdf.pages) > 30:
+                        raise ValueError("Resume exceeds 30 pages.")
+                    parts = []
+                    total = 0
+                    for page in pdf.pages:
+                        part = page.extract_text() or ""
+                        total += len(part)
+                        if total > 100000:
+                            raise ValueError("Resume text exceeds limits.")
+                        parts.append(part)
+                    text = "\n".join(parts)
             elif file_type.lower() == ".docx":
                 document = docx.Document(file_path)
                 parts = [p.text for p in document.paragraphs]
@@ -39,6 +49,8 @@ class ResumeParserService:
                 raise ValueError("Upload a PDF or DOCX resume.")
         except Exception as exc:
             raise ValueError("Unable to read this resume. Upload a valid PDF or DOCX file.") from exc
+        if len(text) > 100000:
+            raise ValueError("Resume text exceeds 100,000 characters.")
         if not text.strip():
             raise ValueError("No readable text found. Use a text-based PDF or DOCX; scanned PDFs need OCR first.")
         return text.strip()

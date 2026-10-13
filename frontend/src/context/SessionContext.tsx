@@ -72,7 +72,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       try {
         await fetchApi(`/resume/session/${activeSession.id}`, { method: 'DELETE' });
       } catch (e) {
-        console.error("Session delete error:", e);
+        throw e;
       }
     }
     setActiveSession(null);

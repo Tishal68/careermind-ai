@@ -22,12 +22,13 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
 
   const validateAndSetFile = (selected: File) => {
     setError(null);
+    setFile(null);
     if (!selected.name.toLowerCase().endsWith('.pdf') && !selected.name.toLowerCase().endsWith('.docx')) {
       setError('Invalid file format. Please upload a PDF or DOCX file.');
       return;
     }
-    if (selected.size > 5 * 1024 * 1024) {
-      setError('File size exceeds 5MB limit.');
+    if (!selected.size || selected.size > 5 * 1024 * 1024) {
+      setError('Choose a non-empty file no larger than 5 MB.');
       return;
     }
     setFile(selected);
@@ -40,14 +41,7 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const token = localStorage.getItem('careermind_token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/resume/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!response.ok) throw new Error((await response.json()).detail || 'Resume upload failed');
-      onSuccess(await response.json());
+      onSuccess(await fetchApi('/resume/upload', { method: 'POST', body: formData }));
     } catch (err: any) {
       setError(err.message || 'Error uploading file.');
     } finally {
@@ -63,10 +57,10 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
         onDrop={(e) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files[0]) validateAndSetFile(e.dataTransfer.files[0]); }}
         className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${isDragOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700/60 bg-slate-900/40'}`}
       >
-        <input type="file" accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && validateAndSetFile(e.target.files[0])} className="hidden" id="resume-file-input" />
-        <label htmlFor="resume-file-input" className="cursor-pointer block">
+        <input type="file" accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && validateAndSetFile(e.target.files[0])} className="sr-only peer" disabled={isUploading} id="resume-file-input" />
+        <label htmlFor="resume-file-input" className="cursor-pointer block peer-focus-visible:outline peer-focus-visible:outline-emerald-400">
           <div className="p-4 rounded-full bg-indigo-600/10 border border-indigo-500/20 w-fit mx-auto text-indigo-400 mb-4"><UploadCloud className="w-8 h-8" /></div>
-          {file ? <p className="text-sm font-semibold text-white flex items-center justify-center gap-2"><FileText className="w-4 h-4 text-indigo-400" />{file.name}</p> : <p className="text-sm font-medium text-slate-200">Click to upload or drag & drop resume file (PDF/DOCX)</p>}
+          {file ? <p className="text-sm font-semibold text-white break-all flex items-center justify-center gap-2"><FileText className="w-4 h-4 text-indigo-400" />{file.name}</p> : <p className="text-sm font-medium text-slate-200">Click to upload or drag & drop resume file (PDF/DOCX)</p>}
         </label>
       </div>
       {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span></div>}
@@ -220,17 +214,19 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<any>(null);
+  const [evaluationError, setEvaluationError] = useState('');
 
   const handleSubmit = async () => {
     if (!answer.trim() || isSubmitting) return;
     setIsSubmitting(true);
+    setEvaluationError('');
     try {
       const data = await fetchApi<any>('/interview/evaluate', { method: 'POST', body: JSON.stringify({ session_id: session.id, question, user_answer: answer }) });
       setFeedback(data);
       if (data.next_question) setQuestion(data.next_question);
       setAnswer('');
-    } catch {
-      alert('Evaluation error');
+    } catch (err: any) {
+      setEvaluationError(err.message || 'Evaluation failed. Please retry.');
     } finally {
       setIsSubmitting(false);
     }
@@ -240,7 +236,8 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
     <div className="space-y-6">
       <Card glass className="space-y-6 border-purple-500/30">
         <div className="flex items-start gap-3"><BrainCircuit className="w-6 h-6 text-purple-400 shrink-0" /><p className="text-lg font-bold text-white">{question}</p></div>
-        <textarea rows={5} placeholder="Type response..." value={answer} onChange={e => setAnswer(e.target.value)} className="w-full glass-input rounded-xl p-4 text-sm" />
+        {evaluationError && <p role="alert" className="text-rose-300">{evaluationError}</p>}
+        <textarea aria-label="Interview answer" maxLength={10000} rows={5} placeholder="Type response..." value={answer} onChange={e => setAnswer(e.target.value)} className="w-full glass-input rounded-xl p-4 text-sm" />
         <Button onClick={handleSubmit} isLoading={isSubmitting} disabled={!answer.trim()} className="w-full" rightIcon={<Send className="w-4 h-4" />}>Submit Answer & Evaluate</Button>
       </Card>
       {feedback && (

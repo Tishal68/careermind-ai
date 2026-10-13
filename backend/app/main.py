@@ -5,9 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
-from app.core.security import get_password_hash
+from app.core.security import verify_password
 from app.api import api_router
 from app.models import User
+from app.core.request_limits import RequestLimitsMiddleware
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,63 +19,43 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+app.add_middleware(RequestLimitsMiddleware)
+
 Base.metadata.create_all(bind=engine)
 
 
-def seed_default_users():
-    """Automatically seed default demo and admin superuser accounts safely."""
-    db = SessionLocal()
-    try:
-        if not db.query(User).filter(User.email == "demo@careermind.ai").first():
-            demo = User(
-                email="demo@careermind.ai",
-                full_name="Demo Professional",
-                hashed_password=get_password_hash("Password123!"),
-                is_active=True,
-                is_superuser=False
-            )
-            db.add(demo)
+# Retire previously seeded accounts only while they still use public credentials.
+# Accounts with an independently changed password are preserved.
+with SessionLocal() as db:
+    for email, password in [("demo@careermind.ai", "Password123!"), ("admin@careermind.ai", "AdminPass123!")]:
+        user = db.query(User).filter(User.email == email).first()
+        if user and (user.hashed_password == "standalone-mode" or verify_password(password, user.hashed_password)):
+            user.is_active = False
+            user.is_superuser = False
+    db.commit()
 
-        admin = db.query(User).filter(User.email == "admin@careermind.ai").first()
-        if not admin:
-            admin_user = User(
-                email="admin@careermind.ai",
-                full_name="System Administrator",
-                hashed_password=get_password_hash("AdminPass123!"),
-                is_active=True,
-                is_superuser=True
-            )
-            db.add(admin_user)
-        elif not admin.is_superuser:
-            admin.is_superuser = True
-
-        db.commit()
-    except Exception as e:
-        print(f"Error seeding default accounts: {e}")
-    finally:
-        db.close()
-
-
-seed_default_users()
+@app.middleware("http")
+async def response_security(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if request.url.path.startswith(settings.API_V1_STR):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 # Mount API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# Determine path to compiled Next.js static files
-POSSIBLE_STATIC_DIRS = [
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "out")),
-    "/app/frontend/out",
-    os.path.abspath(os.path.join(os.getcwd(), "frontend", "out")),
-    os.path.abspath(os.path.join(os.getcwd(), "..", "frontend", "out")),
-]
-
-STATIC_DIR = next((d for d in POSSIBLE_STATIC_DIRS if os.path.exists(d) and os.path.isdir(d)), None)
+# Next.js serves the UI in development and production. Static hosting is opt-in
+# to avoid silently serving the obsolete checked-in frontend/out build.
+STATIC_DIR = os.getenv("STATIC_FRONTEND_DIR")
 
 if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, "index.html")):
     _next_dir = os.path.join(STATIC_DIR, "_next")
@@ -89,27 +70,20 @@ if STATIC_DIR and os.path.exists(os.path.join(STATIC_DIR, "index.html")):
 
         clean_path = full_path.strip("/")
 
-        # 1. Root route
-        if not clean_path:
-            return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+        root_path = os.path.realpath(STATIC_DIR)
+        candidates = [clean_path, os.path.join(clean_path, "index.html"), clean_path + ".html"] if clean_path else ["index.html"]
+        for relative in candidates:
+            candidate = os.path.realpath(os.path.join(root_path, relative))
+            try:
+                inside = os.path.commonpath([root_path, candidate]) == root_path
+            except ValueError:
+                inside = False
+            if not inside:
+                return JSONResponse(status_code=404, content={"detail": "Not found"})
+            if os.path.isfile(candidate):
+                return FileResponse(candidate)
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
 
-        # 2. Exact file (e.g. favicon.ico, images, .txt)
-        file_path = os.path.join(STATIC_DIR, clean_path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-
-        # 3. Directory with index.html (e.g. login/index.html, dashboard/index.html)
-        dir_html = os.path.join(STATIC_DIR, clean_path, "index.html")
-        if os.path.isfile(dir_html):
-            return FileResponse(dir_html)
-
-        # 4. Suffix .html (e.g. login.html, dashboard.html)
-        html_path = os.path.join(STATIC_DIR, f"{clean_path}.html")
-        if os.path.isfile(html_path):
-            return FileResponse(html_path)
-
-        # 5. SPA fallback
-        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 else:
     @app.get("/")
     def root():

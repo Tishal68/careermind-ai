@@ -1,3 +1,4 @@
+from app.core.request_limits import expensive_request
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -16,7 +17,7 @@ def chat_context(db: Session = Depends(get_db), current_user: User = Depends(get
     return CoachService.report_context(db, report) if report else None
 
 
-@router.post("/message", response_model=ChatMessageResponse)
+@router.post("/message", response_model=ChatMessageResponse, dependencies=[Depends(expensive_request)])
 def send_chat(req: ChatMessageRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = req.content.strip()
     if not query:

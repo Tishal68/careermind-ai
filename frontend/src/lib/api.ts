@@ -20,7 +20,7 @@ export async function fetchApi<T>(
   const token = typeof window !== 'undefined' ? localStorage.getItem('careermind_token') : null;
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
 
@@ -34,6 +34,11 @@ export async function fetchApi<T>(
       headers,
     });
 
+    if (response.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/auth/')) {
+      localStorage.removeItem('careermind_token');
+      window.location.assign('/login');
+    }
+    if (response.status === 204) return undefined as T;
     const contentType = response.headers.get('content-type');
     const isJson = contentType && contentType.includes('application/json');
     const data = isJson ? await response.json() : await response.text();

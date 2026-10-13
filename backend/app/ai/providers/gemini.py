@@ -28,10 +28,10 @@ class GeminiLLMProvider(BaseLLMProvider):
                     if response and response.text:
                         return response.text.strip()
                 except Exception as inner_e:
-                    logger.warning(f"Gemini model {model_name} warning: {inner_e}")
+                    logger.warning("Gemini model request failed (%s)", type(inner_e).__name__)
                     continue
         except Exception as e:
-            logger.error(f"Gemini API Provider error: {e}")
+            logger.error("Gemini provider failed (%s)", type(e).__name__)
         return ""
 
     def generate_json(self, prompt: str, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -46,5 +46,5 @@ class GeminiLLMProvider(BaseLLMProvider):
                 json_str = json_str.split("```")[1].split("```")[0].strip()
             return json.loads(json_str)
         except Exception as e:
-            logger.warning(f"Gemini JSON parse warning: {e}")
+            logger.warning("Gemini output was not valid JSON")
             return {}

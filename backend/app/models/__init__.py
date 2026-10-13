@@ -19,3 +19,5 @@ __all__ = [
     "CareerProfile",
     "ResumeVersion"
 ]
+
+from app.models.revoked_token import RevokedToken

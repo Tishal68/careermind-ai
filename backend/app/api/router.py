@@ -14,7 +14,7 @@ api_router = APIRouter()
 # Health
 @api_router.get("/health", response_model=HealthCheck, tags=["Health"])
 def health_check():
-    return HealthCheck(status="healthy", project="NexPath - AI Career Operating System", version=settings.VERSION)
+    return HealthCheck(status="healthy", project="CareerMind AI", version=settings.VERSION)
 
 # Include v1 Domain Routers
 api_router.include_router(auth_router)

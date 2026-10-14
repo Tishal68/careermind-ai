@@ -10,6 +10,6 @@ from app.services.parser_service import ResumeParserService
 if __name__ == "__main__":
     try:
         print(json.dumps({"text": ResumeParserService.extract_raw_text(sys.argv[1], sys.argv[2])}))
-    except Exception:
-        print(json.dumps({"error": "Unable to read this resume within the document limits. Use a valid text-based PDF or DOCX."}))
+    except ValueError as exc:
+        print(json.dumps({"error": str(exc)}))
         sys.exit(1)

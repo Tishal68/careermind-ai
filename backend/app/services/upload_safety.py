@@ -24,16 +24,26 @@ def preflight_docx(path):
 def extract_isolated(path, extension):
     if extension == '.docx':
         preflight_docx(path)
+    # Uvicorn's --app-dir changes its import path, not the child process cwd.
+    # Resolve uploads before switching to the backend package directory.
+    path = Path(path).resolve()
     try:
         result = subprocess.run([sys.executable, '-m', 'app.services.document_worker', str(path), extension],
+                                cwd=Path(__file__).resolve().parents[2],
                                 capture_output=True, text=True, encoding='utf-8', timeout=20,
                                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError("Reading this file took too long. Try exporting a simpler PDF or DOCX and upload it again.") from exc
+    try:
         data = json.loads(result.stdout)
-        if result.returncode or not isinstance(data.get('text'), str):
-            raise ValueError()
-        return data['text']
-    except (subprocess.TimeoutExpired, ValueError) as exc:
-        raise ValueError("Unable to read this resume within the document limits. Use a text-based PDF or DOCX of at most 30 pages.") from exc
+    except ValueError as exc:
+        raise HTTPException(503, "The resume reader is temporarily unavailable. Please retry.") from exc
+    if isinstance(data, dict) and isinstance(data.get('error'), str):
+        raise ValueError(data['error'])
+    if result.returncode or not isinstance(data, dict) or not isinstance(data.get('text'), str):
+        raise HTTPException(503, "The resume reader is temporarily unavailable. Please retry.")
+    return data['text']
+
 
 def remove_owned_directory(directory, root):
     """Refuse deletion outside upload storage, including symlink escapes."""

@@ -18,6 +18,8 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
+  sessionError: string;
+  retrySession: () => void;
   login: (token: string, user: User) => void;
   logout: () => void;
 }
@@ -28,6 +30,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionError, setSessionError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const retrySession = () => { setIsLoading(true); setSessionError(''); setAttempt(value => value + 1); };
 
   useEffect(() => {
     let active = true;
@@ -36,30 +41,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(saved);
     fetchApi<User>('/auth/me')
       .then(data => { if (active) setUser(data); })
-      .catch(() => { if (active) { localStorage.removeItem('careermind_token'); setToken(null); setUser(null); } })
+      .catch(err => { if (active) {
+        if (err.status === 401) { localStorage.removeItem('careermind_token'); localStorage.removeItem('careermind_research_job'); setToken(null); setUser(null); }
+        else setSessionError('We could not reconnect to your account. Your session is saved. Please try again.');
+      } })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [attempt]);
 
   const login = (newToken: string, newUser: User) => {
+    localStorage.removeItem('careermind_research_job');
+    setSessionError('');
     localStorage.setItem('careermind_token', newToken);
     setToken(newToken);
     setUser(newUser);
   };
 
   const logout = async () => {
-    try { await fetchApi('/auth/logout', { method: 'POST' }); }
-    catch { /* Clear this device even if the server is temporarily unreachable. */ }
-    finally {
+    // Start revocation with the current token, then clear this device immediately.
+    const revocation = fetchApi('/auth/logout', { method: 'POST' }).catch(() => undefined);
     localStorage.removeItem('careermind_token');
     localStorage.removeItem('careermind_research_job');
     setToken(null);
     setUser(null);
-    }
+    setSessionError('');
+    await revocation;
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, sessionError, retrySession, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

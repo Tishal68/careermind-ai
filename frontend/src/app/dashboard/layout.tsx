@@ -15,11 +15,13 @@ const items = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isLoading, logout } = useAuth();
-  useEffect(() => { if (!isLoading && !user) router.replace('/login'); }, [isLoading, user, router]);
+  const { user, isLoading, sessionError, retrySession, logout } = useAuth();
+  useEffect(() => { if (!isLoading && !user && !sessionError) router.replace('/login'); }, [isLoading, user, sessionError, router]);
+  if (sessionError) return <div className="max-w-md mx-auto p-8 space-y-5"><h1 className="text-2xl font-bold">Let’s reconnect</h1><p role="alert" className="text-slate-300">{sessionError}</p><button onClick={retrySession} className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold">Try again</button><button onClick={logout} className="ml-4 underline">Sign out</button></div>;
   if (isLoading || !user) return <p role="status" className="p-8">Loading your account…</p>;
 
   return <div className="min-h-screen bg-[#0b121b] text-slate-100">
+    <a href="#main-content" className="sr-only focus:not-sr-only focus:block focus:p-4">Skip to content</a>
     <header className="border-b border-white/10 bg-[#0b121b] sticky top-0 z-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-bold text-lg"><Compass className="text-emerald-400" />CareerMind AI</Link>
@@ -29,6 +31,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
       </div>
     </header>
-    <main>{children}</main>
+    <main id="main-content">{children}</main>
   </div>;
 }

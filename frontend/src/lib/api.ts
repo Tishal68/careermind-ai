@@ -32,6 +32,7 @@ export async function fetchApi<T>(
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
+      signal: options.signal ?? (endpoint.startsWith('/auth/') ? AbortSignal.timeout(30000) : undefined),
     });
 
     if (response.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/auth/')) {
@@ -56,7 +57,7 @@ export async function fetchApi<T>(
       throw error;
     }
     throw new ApiError(
-      'Failed to connect to backend server. Please ensure the FastAPI backend is running on http://127.0.0.1:8000.',
+      'The server is taking longer than expected or your connection was interrupted. Please try again.',
       503
     );
   }

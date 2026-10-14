@@ -108,7 +108,7 @@ export default function GapAnalysisPage() {
       <p className="text-slate-400 max-w-2xl">Research any job role. Compare your resume with openings, discover common requirements, and build a plan for the company you want to join.</p>
     </header>
     {error && <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-300">{error}</p>}
-    <div className="grid lg:grid-cols-[340px_1fr] gap-8 items-start">
+    <div className="grid lg:grid-cols-[380px_1fr] gap-8 items-start">
       <fieldset disabled={busy || loading} className="space-y-5 min-w-0">
         <Card glass className="space-y-4">
           <label htmlFor="target-role" className="flex items-center gap-2 font-bold text-white"><Target className="w-5 h-5 text-emerald-400" />1. Choose your target role</label>
@@ -130,11 +130,13 @@ export default function GapAnalysisPage() {
           </div>}
         </Card>
         <Card glass className="space-y-4">
-          <h2 className="font-semibold text-white">3. Applying to a specific company?</h2>
+          <details className="space-y-4">
+          <summary className="font-semibold text-white py-2">Tailor to a company <span className="text-xs text-slate-400 font-normal">· Optional</span></summary>
           <p className="text-xs text-slate-400">Optional: add its exact vacancy for a targeted comparison. Paste the description if the page requires a login.</p>
           <label className="block text-sm text-slate-300">Company<input value={company} maxLength={150} onChange={e => setCompany(e.target.value)} className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3" /></label>
           <label className="block text-sm text-slate-300">Job URL<input type="url" value={jobUrl} maxLength={2000} onChange={e => setJobUrl(e.target.value)} placeholder="https://company.com/careers/job" className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3" /></label>
           <label className="block text-sm text-slate-300">Job description<textarea rows={5} value={description} maxLength={16000} onChange={e => setDescription(e.target.value)} placeholder="Paste the full requirements here…" className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3" /></label>
+          </details>
           <label className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={searchMarket} onChange={e => setSearchMarket(e.target.checked)} />Also research current market openings</label>
           <p className="text-xs text-slate-500">Your resume and job descriptions are analyzed by the configured Ollama model. Search uses only your role, level, and location preferences.</p>
         </Card>
@@ -145,7 +147,7 @@ export default function GapAnalysisPage() {
         </button>
         {report?.analysis_data?.research && searchMarket && <button onClick={() => analyze(true)} disabled={busy || loading} className="w-full text-sm text-emerald-300 underline">Refresh research with these preferences</button>}
       </fieldset>
-      <section aria-live="polite">
+      <section aria-live="polite" className="lg:sticky lg:top-28 min-w-0">
         {busy && <Card glass className="mb-5"><p role="status" className="text-emerald-300">{progress || 'Resuming research…'}</p><p className="text-xs text-slate-400 mt-2">You can reload this page; it will check the saved task.</p></Card>}
         {report ? <GapBreakdown report={report} /> : <Card glass className="text-center py-20 space-y-4 border-dashed">
           <Target className="w-12 h-12 text-emerald-400 mx-auto" />

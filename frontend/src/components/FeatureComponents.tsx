@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, Input } from '@/components/UIComponents';
 import { fetchApi } from '@/lib/api';
-import ResearchResults from '@/components/ResearchResults';
+import dynamic from 'next/dynamic';
+const ResearchResults = dynamic(() => import('@/components/ResearchResults'), { loading: () => <p role="status" className="p-6 text-slate-400">Loading your results…</p> });
 import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, User, Mail, Phone, Code, GraduationCap, Briefcase, Award,
   Target, Sparkles, AlertTriangle, Lightbulb, CheckSquare, Square, Clock,
@@ -19,8 +20,11 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [success, setSuccess] = useState('');
 
   const validateAndSetFile = (selected: File) => {
+    if (isUploading) return;
+    setSuccess('');
     setError(null);
     setFile(null);
     if (!selected.name.toLowerCase().endsWith('.pdf') && !selected.name.toLowerCase().endsWith('.docx')) {
@@ -35,13 +39,15 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || isUploading) return;
     setIsUploading(true);
     setError(null);
     try {
       const formData = new FormData();
       formData.append('file', file);
       onSuccess(await fetchApi('/resume/upload', { method: 'POST', body: formData }));
+      setSuccess(`${file.name} is ready to use.`);
+      setFile(null);
     } catch (err: any) {
       setError(err.message || 'Error uploading file.');
     } finally {
@@ -55,16 +61,17 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files[0]) validateAndSetFile(e.dataTransfer.files[0]); }}
-        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${isDragOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700/60 bg-slate-900/40'}`}
+        className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all cursor-pointer ${isDragOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700/60 bg-slate-900/40'}`}
       >
         <input type="file" accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && validateAndSetFile(e.target.files[0])} className="sr-only peer" disabled={isUploading} id="resume-file-input" />
         <label htmlFor="resume-file-input" className="cursor-pointer block peer-focus-visible:outline peer-focus-visible:outline-emerald-400">
-          <div className="p-4 rounded-full bg-indigo-600/10 border border-indigo-500/20 w-fit mx-auto text-indigo-400 mb-4"><UploadCloud className="w-8 h-8" /></div>
+          <div className="p-4 rounded-full bg-indigo-600/10 border border-indigo-500/20 w-fit mx-auto text-indigo-400 mb-4"><UploadCloud className="w-6 h-6" /></div>
           {file ? <p className="text-sm font-semibold text-white break-all flex items-center justify-center gap-2"><FileText className="w-4 h-4 text-indigo-400" />{file.name}</p> : <p className="text-sm font-medium text-slate-200">Click to upload or drag & drop resume file (PDF/DOCX)</p>}
         </label>
       </div>
-      {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span></div>}
-      {file && <Button onClick={handleUpload} className="w-full" isLoading={isUploading} leftIcon={<CheckCircle2 className="w-4 h-4" />}>Parse Resume & Extract Intelligence</Button>}
+      {success && <p role="status" className="text-sm text-emerald-300 break-words">{success}</p>}
+      {error && <div role="alert" className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span></div>}
+      {file && <Button onClick={handleUpload} className="w-full" isLoading={isUploading} leftIcon={<CheckCircle2 className="w-4 h-4" />}>{isUploading ? 'Reading your resume…' : 'Use this resume'}</Button>}
     </div>
   );
 };

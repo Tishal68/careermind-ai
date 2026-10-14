@@ -25,8 +25,11 @@ export default function GapAnalysisPage() {
   const [progress, setProgress] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchApi<any[]>('/resume/my-resumes'), fetchApi<any[]>('/analysis/reports')])
-      .then(([files, reports]) => {
+    Promise.allSettled([fetchApi<any[]>('/resume/my-resumes'), fetchApi<any[]>('/analysis/reports')])
+      .then(([fileResult, reportResult]) => {
+        const files = fileResult.status === 'fulfilled' ? fileResult.value : [];
+        const reports = reportResult.status === 'fulfilled' ? reportResult.value : [];
+        if (fileResult.status === 'rejected') setError('Could not load saved resumes. Reload the page or upload your resume again.');
         setResumes(files);
         const latest = reports[0];
         if (latest && files.some(f => f.id === latest.resume_id)) {
@@ -69,7 +72,7 @@ export default function GapAnalysisPage() {
         if (err.status === 404 || failures >= 5) {
           if (err.status === 404) localStorage.removeItem('careermind_research_job');
           setError(`${err.message} Reload the page to check the research status.`);
-          setBusy(false); return;
+          setJobId(null); setBusy(false); setProgress(''); return;
         }
       }
       if (!stopped) timer = setTimeout(poll, 4000);
@@ -79,11 +82,18 @@ export default function GapAnalysisPage() {
   }, [jobId]);
 
   async function analyze(refresh = false) {
+    if (busy || loading) return;
+    const validation = !resumeId ? 'Upload or select a resume first.'
+      : role.trim().length < 2 ? 'Enter your target role (at least 2 characters).'
+      : location.trim().length === 1 ? 'Enter a location with at least 2 characters, or leave it blank for Worldwide.'
+      : description.trim() && description.trim().length < 80 ? 'Paste the full job description (at least 80 characters).'
+      : !searchMarket && !jobUrl.trim() && !description.trim() ? 'Add a job URL or description, or enable market research.' : '';
+    if (validation) { setError(validation); return; }
     setBusy(true); setError(''); setProgress('Starting research…');
     try {
       const job = await fetchApi<any>('/analysis/research', {
         method: 'POST',
-        body: JSON.stringify({ resume_id: Number(resumeId), job_role: role, location, experience_level: level,
+        body: JSON.stringify({ resume_id: Number(resumeId), job_role: role.trim(), location: location.trim() || 'Worldwide', experience_level: level,
           remote, company, job_url: jobUrl, job_description: description, search_market: searchMarket, refresh }),
       });
       localStorage.setItem('careermind_research_job', String(job.id));
@@ -104,7 +114,7 @@ export default function GapAnalysisPage() {
           <label htmlFor="target-role" className="flex items-center gap-2 font-bold text-white"><Target className="w-5 h-5 text-emerald-400" />1. Choose your target role</label>
           <input id="target-role" list="role-suggestions" maxLength={100} value={role} onChange={e => { setRole(e.target.value); setReport(null); }} placeholder="e.g. Product Designer, Accountant" className="w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white" />
           <datalist id="role-suggestions">{JOB_ROLES.map(r => <option key={r} value={r} />)}</datalist>
-          <label className="block text-sm text-slate-300">Target location<input value={location} maxLength={150} onChange={e => setLocation(e.target.value)} placeholder="e.g. Bengaluru, India or Worldwide" className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white" /></label>
+          <label className="block text-sm text-slate-300">Target location (optional)<input value={location} maxLength={150} onChange={e => setLocation(e.target.value)} placeholder="Worldwide, or enter a city / country" className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white" /></label>
           <label className="block text-sm text-slate-300">Experience level<select value={level} onChange={e => setLevel(e.target.value)} className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white">{['Internship', 'Entry-level', 'Junior', 'Mid-Level', 'Senior', 'Lead', 'Any'].map(l => <option key={l}>{l}</option>)}</select></label>
           <label className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={remote} onChange={e => setRemote(e.target.checked)} />Remote opportunities only</label>
         </Card>
@@ -128,10 +138,12 @@ export default function GapAnalysisPage() {
           <label className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={searchMarket} onChange={e => setSearchMarket(e.target.checked)} />Also research current market openings</label>
           <p className="text-xs text-slate-500">Your resume and job descriptions are analyzed by the configured Ollama model. Search uses only your role, level, and location preferences.</p>
         </Card>
-        <button onClick={() => analyze()} disabled={!resumeId || !role.trim() || !location.trim() || (!searchMarket && !jobUrl.trim() && description.trim().length < 80) || busy || loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed py-3 text-white font-semibold">
+        <p className="text-xs text-slate-400">{resumeId ? "Ready to research. A blank location searches Worldwide." : "Upload or select a resume to research your role match."}</p>
+        {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
+        <button onClick={() => analyze()} disabled={busy || loading} className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed py-3 text-white font-semibold">
           {busy ? 'Researching…' : 'Research my role match'}<ArrowRight className="w-4 h-4" />
         </button>
-        {report?.analysis_data?.research && searchMarket && <button onClick={() => analyze(true)} disabled={busy || !location.trim() || !role.trim()} className="w-full text-sm text-emerald-300 underline">Refresh research with these preferences</button>}
+        {report?.analysis_data?.research && searchMarket && <button onClick={() => analyze(true)} disabled={busy || loading} className="w-full text-sm text-emerald-300 underline">Refresh research with these preferences</button>}
       </fieldset>
       <section aria-live="polite">
         {busy && <Card glass className="mb-5"><p role="status" className="text-emerald-300">{progress || 'Resuming research…'}</p><p className="text-xs text-slate-400 mt-2">You can reload this page; it will check the saved task.</p></Card>}

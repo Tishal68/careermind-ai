@@ -24,9 +24,9 @@ export const Input: React.FC<{
           id={inputId}
           aria-invalid={!!error}
           aria-describedby={error ? `${inputId}-error` : undefined}
-          className={`w-full bg-[#0b1320] border border-white/10 rounded-xl py-2.5 ${
+          className={`w-full bg-[#0b1320] border border-white/10 rounded-xl py-3 ${
             leftIcon ? 'pl-10' : 'pl-3.5'
-          } pr-3.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all ${className}`}
+          } pr-3.5 text-base text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all ${className}`}
           {...props}
         />
       </div>

@@ -49,7 +49,7 @@ class AIBrainEngine:
             target_role=target_role,
             nex_score=nex_score,
             ats_score=career_eval["ats_score"],
-            skills_match=78.0,
+            skills_match=career_eval["match_percent"],
             interview_readiness=career_eval["readiness_score"],
             top_priority_directive=top_priority
         )

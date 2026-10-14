@@ -49,6 +49,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => { active = false; };
   }, [attempt]);
 
+  useEffect(() => {
+    const sync = (event: StorageEvent) => {
+      if (event.key !== 'careermind_token') return;
+      setUser(null); setToken(null); setSessionError('');
+      setIsLoading(true); setAttempt(value => value + 1);
+    };
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
+
   const login = (newToken: string, newUser: User) => {
     localStorage.removeItem('careermind_research_job');
     setSessionError('');
@@ -65,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     setSessionError('');
+    setAttempt(value => value + 1);
     await revocation;
   };
 

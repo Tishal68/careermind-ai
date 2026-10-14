@@ -1,4 +1,8 @@
 """Single-process abuse controls. Use shared ingress limits before scaling workers."""
+import hashlib
+import ipaddress
+import json
+from app.core.config import settings
 import time
 import asyncio
 import threading
@@ -25,10 +29,36 @@ class WindowLimiter:
             self.entries[key] = (started, count + 1)
             return True
 
+def client_identity(scope):
+    """Walk from the socket toward the client, removing only configured proxies."""
+    peer = (scope.get("client") or ("unknown", 0))[0]
+    networks = [ipaddress.ip_network(value) for value in settings.TRUSTED_PROXY_CIDRS]
+    def trusted(value):
+        try:
+            return any(ipaddress.ip_address(value) in net for net in networks)
+        except ValueError:
+            return False
+    if not trusted(peer):
+        return peer
+    headers = dict(scope.get("headers", []))
+    chain = headers.get(b"x-forwarded-for", b"").decode("ascii", errors="ignore").split(",")
+    current = peer
+    for candidate in reversed(chain):
+        if not trusted(current):
+            break
+        try:
+            current = str(ipaddress.ip_address(candidate.strip()))
+        except ValueError:
+            return peer
+    return current
+
+
 class RequestLimitsMiddleware:
     def __init__(self, app, auth_limit=30):
         self.app = app
         self.auth = WindowLimiter(auth_limit)
+        self.accounts = WindowLimiter(10)
+        self.global_auth = WindowLimiter(300)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -37,10 +67,16 @@ class RequestLimitsMiddleware:
         async def reject(code, detail):
             await JSONResponse({"detail": detail}, status_code=code,
                                headers={"Retry-After": "60"} if code == 429 else {})(scope, receive, send)
-        if scope["method"] == "POST" and path in ("/api/v1/auth/login", "/api/v1/auth/register"):
-            # Never trust attacker-supplied forwarding headers here.
-            peer = scope.get("client") or ("unknown", 0)
-            if not self.auth.allow(peer[0]):
+        is_auth = scope["method"] == "POST" and path in ("/api/v1/auth/login", "/api/v1/auth/register")
+        if is_auth:
+            identity = client_identity(scope)
+            # A loopback proxy is not an end-user identity. Account/global budgets
+            # still apply until verified upstream networks are configured.
+            try:
+                proxy_only = ipaddress.ip_address(identity).is_loopback
+            except ValueError:
+                proxy_only = False
+            if not self.global_auth.allow("all") or (not proxy_only and not self.auth.allow(identity)):
                 return await reject(429, "Too many authentication attempts. Retry in a minute.")
         if scope["method"] in ("POST", "PUT", "PATCH"):
             limit = 6 * 1024 * 1024 if path.startswith("/api/v1/resume/") else 64 * 1024
@@ -60,6 +96,15 @@ class RequestLimitsMiddleware:
                     chunks.append(message["body"])
                 if not message.get("more_body", False):
                     break
+            if is_auth:
+                try:
+                    payload = json.loads(b"".join(chunks))
+                    email = payload.get("email", "") if isinstance(payload, dict) else ""
+                    key = hashlib.sha256(str(email).strip().casefold().encode()).hexdigest()
+                except (ValueError, UnicodeError):
+                    key = "invalid-body"
+                if not self.accounts.allow(key):
+                    return await reject(429, "Too many attempts for this account. Retry in a minute.")
             consumed = False
             async def bounded_receive():
                 nonlocal consumed

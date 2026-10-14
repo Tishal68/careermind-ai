@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, HTTPException
+from app.core.config import settings
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
@@ -14,7 +15,10 @@ router = APIRouter(prefix="/user", tags=["Settings & Preferences"])
 def get_user_settings(current_user: User = Depends(get_current_user)):
     return {
         "target_job_role": current_user.target_job_role or "AI Engineer",
-        "preferred_ai_model": current_user.preferred_ai_model or "gemini-2.5-flash",
+        "preferred_ai_model": settings.OLLAMA_MODEL,
+        "coach_provider": settings.DEFAULT_AI_PROVIDER,
+        "coach_model": settings.GEMINI_MODEL if settings.DEFAULT_AI_PROVIDER.lower() == "gemini" else settings.OLLAMA_MODEL,
+        "fallback_enabled": settings.AI_FALLBACK_ENABLED,
         "email": current_user.email,
         "full_name": current_user.full_name
     }
@@ -22,7 +26,7 @@ def get_user_settings(current_user: User = Depends(get_current_user)):
 
 class SettingsUpdate(BaseModel):
     target_job_role: str = Field(default="AI Engineer", min_length=1, max_length=100)
-    preferred_ai_model: str = Field(default="llama3.2", min_length=1, max_length=100)
+    preferred_ai_model: str | None = None
     full_name: str = Field(default="", max_length=255)
 
 
@@ -32,7 +36,9 @@ def update_user_settings(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    if payload.preferred_ai_model is not None and payload.preferred_ai_model != settings.OLLAMA_MODEL:
+        raise HTTPException(422, "The AI model is configured by the service administrator.")
+    for key, value in payload.model_dump(exclude_unset=True, exclude={"preferred_ai_model"}).items():
         setattr(current_user, key, value)
     db.commit()
     db.refresh(current_user)

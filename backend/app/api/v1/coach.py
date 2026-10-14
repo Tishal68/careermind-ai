@@ -1,5 +1,5 @@
 from app.core.request_limits import expensive_request
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.deps import get_current_user
@@ -36,13 +36,15 @@ def send_chat(req: ChatMessageRequest, db: Session = Depends(get_db), current_us
 
 
 @router.get("/history", response_model=ChatHistoryResponse)
-def chat_history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def chat_history(limit: int = Query(40, ge=1, le=100), before: int | None = Query(None, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     report = CoachService.latest_report(db, current_user.id)
     if report is None:
         return ChatHistoryResponse(messages=[])
     session = CoachService.get_or_create_daily_session(db, current_user.id, report)
-    messages = db.query(ChatMessage).filter(ChatMessage.chat_session_id == session.id).order_by(ChatMessage.id.asc()).all()
-    return ChatHistoryResponse(messages=messages)
+    query = db.query(ChatMessage).filter(ChatMessage.chat_session_id == session.id)
+    if before: query = query.filter(ChatMessage.id < before)
+    rows = query.order_by(ChatMessage.id.desc()).limit(limit+1).all()
+    return ChatHistoryResponse(messages=list(reversed(rows[:limit])), next_before=rows[limit-1].id if len(rows)>limit else None)
 
 
 @router.delete("/clear", status_code=204)

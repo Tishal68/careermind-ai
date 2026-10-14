@@ -113,13 +113,20 @@ class CareerReportResponse(BaseModel):
     field: str
     job_role: str
     experience_level: str
-    resume_score: float
-    ats_score: float
-    readiness_score: float
-    nex_score: Optional[float] = 89.0
+    resume_score: Optional[float] = None
+    ats_score: Optional[float] = None
+    readiness_score: Optional[float] = None
+    nex_score: Optional[float] = None
     analysis_data: Optional[Dict[str, Any]] = None
     gap_analysis: Optional[Dict[str, Any]] = None
     created_at: datetime
+
+    @model_validator(mode="after")
+    def assessed_metrics_only(self):
+        # Older rows contain placeholder scores; do not present them as measured.
+        self.ats_score = self.resume_score = self.readiness_score = None
+        self.nex_score = (self.analysis_data or {}).get("match_percent")
+        return self
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -195,6 +202,7 @@ class ChatMessageResponse(BaseModel):
 
 
 class ChatHistoryResponse(BaseModel):
+    next_before: Optional[int] = None
     messages: List[ChatMessageResponse] = Field(default_factory=list)
 
 
@@ -243,16 +251,16 @@ class RecentReportSummary(BaseModel):
     id: int
     job_role: str
     experience_level: str
-    ats_score: float
+    ats_score: Optional[float] = None
     created_at: datetime
 
 
 class DashboardOverviewResponse(BaseModel):
-    ats_score: float
-    resume_score: float
-    readiness_score: float
-    interview_score: float
-    learning_progress_percent: float
+    ats_score: Optional[float] = None
+    resume_score: Optional[float] = None
+    readiness_score: Optional[float] = None
+    interview_score: Optional[float] = None
+    learning_progress_percent: Optional[float] = None
     completed_projects_count: int
     resumes_count: int
     reports_count: int

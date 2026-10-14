@@ -1,4 +1,6 @@
 import os
+from contextlib import asynccontextmanager
+from app.services.research_worker import start_dispatcher
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -10,7 +12,14 @@ from app.api import api_router
 from app.models import User
 from app.core.request_limits import RequestLimitsMiddleware
 
+@asynccontextmanager
+async def lifespan(app):
+    stop = start_dispatcher()
+    yield
+    stop.set()
+
 app = FastAPI(
+    lifespan=lifespan,
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",

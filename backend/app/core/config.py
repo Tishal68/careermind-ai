@@ -44,6 +44,18 @@ class Settings(BaseSettings):
     # Fallback can send prompts to another provider; keep it opt-in.
     AI_FALLBACK_ENABLED: bool = False
 
+    # Only configure verified proxy networks; forwarding headers are ignored otherwise.
+    TRUSTED_PROXY_CIDRS: List[str] = []
+
+    @field_validator("TRUSTED_PROXY_CIDRS")
+    @classmethod
+    def validate_proxy_networks(cls, values):
+        import ipaddress
+        for value in values:
+            if ipaddress.ip_network(value).prefixlen == 0:
+                raise ValueError("Do not trust the entire internet as a proxy network")
+        return values
+
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",

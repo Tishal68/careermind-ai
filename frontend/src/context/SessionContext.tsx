@@ -42,7 +42,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const [resumes, reports] = await Promise.all([
         fetchApi<ResumeSessionData[]>('/resume/my-resumes').catch(() => []),
-        fetchApi<any[]>('/analysis/reports').catch(() => [])
+        fetchApi<any[]>('/analysis/reports?limit=1').catch(() => [])
       ]);
 
       if (resumes && resumes.length > 0) {

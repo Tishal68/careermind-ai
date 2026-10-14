@@ -10,6 +10,8 @@ const items = [
   { title: 'Role match', href: '/dashboard', icon: Target },
   { title: 'Career coach', href: '/dashboard/coach', icon: Bot },
   { title: 'My resumes', href: '/dashboard/resume', icon: FileText },
+  { title: 'Reports', href: '/dashboard/reports', icon: FileText },
+  { title: 'Settings', href: '/dashboard/settings', icon: Compass },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

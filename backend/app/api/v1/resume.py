@@ -42,9 +42,11 @@ def save_resume_upload(file: UploadFile, user_id: int):
         with open(saved_path, "wb") as buffer:
             buffer.write(contents)
         raw_text = extract_isolated(saved_path, ext)
-    except ValueError as exc:
+    except (ValueError, HTTPException) as exc:
         os.remove(saved_path)
         os.rmdir(user_dir)
+        if isinstance(exc, HTTPException):
+            raise
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return filename, ext, session_uuid, saved_path, raw_text
 

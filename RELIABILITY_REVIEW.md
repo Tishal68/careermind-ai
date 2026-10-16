@@ -38,3 +38,13 @@ Pre-change live /login browser sample: 155,985 encoded JavaScript bytes over 9 r
 ## Rollout and rollback
 
 New research slot/submission/lease tables are additive and created at startup. Existing report rows are not destructively migrated; output serialization masks unsupported historical scores. Stop writes and workers before real-data migration, verify a backup and file paths, then deploy. Application rollback must account for pending queue work and the prior BackgroundTasks implementation. Keep a verified backup before any production change once real data is admitted. See STORAGE_MIGRATION.md for cost and storage details.
+
+## Live verification and follow-up
+
+PR #5 CI passed: 99 backend tests, dependency audits, frontend build, and production Docker smoke checks. Render deployed merge a1a8524 on 2026-10-16. Live API checks passed registration, login, readiness, DOCX/PDF extraction, deletion and revoked logout. A first PDF check timed out during startup contention; a subsequent full check passed. Cold-start upload performance remains a limitation on the free instance.
+
+A synthetic company-description research request completed with a report in 5.5 seconds and unsupported scores remained null. Repeating the idempotency key returned the same job. A separate market-search request terminated in 16.5 seconds with an actionable no-evidence-backed-vacancies result; successful live market discovery is not established.
+
+Live browser testing found a medium-severity delayed-401 race after logout: pending dashboard responses could redirect a new login. Follow-up repair compares the response's original token to the current stored token before clearing/redirecting; session validation likewise ignores results for a replaced token. Three controlled request-race regression tests cover signed-out, replacement-session and genuinely expired-current-session cases.
+
+Post-deployment login sample: 156,056 encoded JavaScript bytes, 9 resources, DOMContentLoaded 1,830.9 ms. This single observation is not proof of a latency improvement.

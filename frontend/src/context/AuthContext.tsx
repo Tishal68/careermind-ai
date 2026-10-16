@@ -40,8 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!saved) { setIsLoading(false); return; }
     setToken(saved);
     fetchApi<User>('/auth/me')
-      .then(data => { if (active) setUser(data); })
-      .catch(err => { if (active) {
+      .then(data => { if (active && localStorage.getItem('careermind_token') === saved) setUser(data); })
+      .catch(err => { if (active && localStorage.getItem('careermind_token') === saved) {
         if (err.status === 401) { localStorage.removeItem('careermind_token'); localStorage.removeItem('careermind_research_job'); setToken(null); setUser(null); }
         else setSessionError('We could not reconnect to your account. Your session is saved. Please try again.');
       } })
@@ -63,6 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('careermind_research_job');
     setSessionError('');
     localStorage.setItem('careermind_token', newToken);
+    setAttempt(value => value + 1);
+    setIsLoading(false);
     setToken(newToken);
     setUser(newUser);
   };

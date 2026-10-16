@@ -35,7 +35,10 @@ export async function fetchApi<T>(
       signal: options.signal ?? (endpoint.startsWith('/auth/') ? AbortSignal.timeout(30000) : undefined),
     });
 
-    if (response.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/auth/')) {
+    // A response belongs to the session that sent it. Late failures from a
+    // signed-out account must not clear or redirect a newer login.
+    if (response.status === 401 && typeof window !== 'undefined' && token
+        && localStorage.getItem('careermind_token') === token && !endpoint.startsWith('/auth/')) {
       localStorage.removeItem('careermind_token');
       localStorage.removeItem('careermind_research_job');
       window.location.assign('/login');

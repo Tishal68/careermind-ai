@@ -280,3 +280,8 @@ class HealthCheck(BaseModel):
     status: str
     project: str
     version: str
+
+
+class ActionTaskUpdate(BaseModel):
+    revision: int = Field(ge=1)
+    is_completed: bool

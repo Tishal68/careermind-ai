@@ -11,6 +11,7 @@ const items = [
   { title: 'Career coach', href: '/dashboard/coach', icon: Bot },
   { title: 'My resumes', href: '/dashboard/resume', icon: FileText },
   { title: 'Reports', href: '/dashboard/reports', icon: FileText },
+  { title: 'Action plan', href: '/dashboard/roadmap', icon: Target },
   { title: 'Settings', href: '/dashboard/settings', icon: Compass },
 ];
 

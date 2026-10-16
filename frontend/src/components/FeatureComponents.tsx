@@ -141,28 +141,6 @@ export const GapBreakdown: React.FC<{ report: any }> = ({ report }) => {
   );
 };
 
-export const RoadmapMilestoneCard: React.FC<{ milestone: any }> = ({ milestone }) => {
-  const [tasks, setTasks] = useState(milestone.tasks || []);
-  const completed = tasks.filter((t: any) => t.is_completed).length;
-  const percent = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
-
-  return (
-    <Card glass className="border-l-4 border-l-indigo-500">
-      <div className="flex justify-between gap-4 mb-4">
-        <div><span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">Week {milestone.week_number}</span><h3 className="text-lg font-bold text-white mt-2">{milestone.title}</h3></div>
-        <span className="text-xs font-bold text-indigo-400">{percent}% Completed</span>
-      </div>
-      <div className="w-full bg-slate-800 rounded-full h-1.5 mb-6"><div className="bg-indigo-500 h-1.5 rounded-full transition-all" style={{ width: `${percent}%` }} /></div>
-      <div className="space-y-2">{tasks.map((t: any) => (
-        <div key={t.id} onClick={() => setTasks((prev: any[]) => prev.map(x => x.id === t.id ? { ...x, is_completed: !x.is_completed } : x))} className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/40 cursor-pointer">
-          {t.is_completed ? <CheckSquare className="w-4 h-4 text-emerald-400" /> : <Square className="w-4 h-4 text-slate-500" />}
-          <span className={`text-xs ${t.is_completed ? 'line-through text-slate-500' : 'text-slate-200'}`}>{t.task_name}</span>
-        </div>
-      ))}</div>
-    </Card>
-  );
-};
-
 export const ProjectCard: React.FC<{ project: any }> = ({ project }) => (
   <Card glass glow className="flex flex-col justify-between h-full">
     <div className="space-y-4">

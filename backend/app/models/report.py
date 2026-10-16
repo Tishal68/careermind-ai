@@ -15,12 +15,12 @@ class CareerReport(Base):
     job_role = Column(String(100), nullable=False)
     experience_level = Column(String(50), nullable=False)
 
-    nex_score = Column(Float, default=78.5)
+    nex_score = Column(Float, nullable=True)
     nex_score_breakdown = Column(JSON, nullable=True)
 
-    resume_score = Column(Float, default=80.0)
-    ats_score = Column(Float, default=82.0)
-    readiness_score = Column(Float, default=75.0)
+    resume_score = Column(Float, nullable=True)
+    ats_score = Column(Float, nullable=True)
+    readiness_score = Column(Float, nullable=True)
 
     analysis_data = Column(JSON, nullable=True)
     gap_analysis = Column(JSON, nullable=True)

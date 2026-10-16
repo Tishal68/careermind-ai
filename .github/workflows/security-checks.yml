@@ -30,3 +30,22 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install httpx python-docx
+      - run: docker build -t careermind-smoke .
+      - name: Start production image
+        run: docker run -d --name careermind-smoke -p 10000:10000 -e SECRET_KEY="$(openssl rand -hex 32)" careermind-smoke
+      - run: python backend/scripts/container_smoke.py
+      - name: Container diagnostics
+        if: failure()
+        run: docker logs --tail 100 careermind-smoke
+      - name: Stop test container
+        if: always()
+        run: docker rm -f careermind-smoke || true

@@ -1,5 +1,11 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Query
+import hashlib
+import json
+import uuid
+from datetime import timedelta
+from sqlalchemy import update, text
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -7,10 +13,10 @@ from app.deps import get_current_user
 from app.models.user import User
 from app.models.session import ResumeSession
 from app.models.report import CareerReport
-from app.models.research import ResearchJob
+from app.models.research import ResearchJob, ResearchSlot, ResearchSubmission
 from app.schemas import ResearchRequest
 from app.services.job_research import public_url
-from app.services.research_worker import run_research, expired
+from app.services.research_worker import expired, release_slot, now
 from app.schemas import (
     AnalysisRequest, CareerReportResponse, DashboardOverviewResponse,
     RecentReportSummary, RoadmapResponse, ProjectRecommendation
@@ -24,26 +30,50 @@ router = APIRouter(tags=["Reports & Analytics"])
 
 
 @router.post("/analysis/research", status_code=202)
-def start_research(req: ResearchRequest, background: BackgroundTasks,
+def start_research(req: ResearchRequest, idempotency_key: str = Header(default="", max_length=64),
                    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    resume = db.query(ResumeSession).filter(ResumeSession.id == req.resume_id,
-                                          ResumeSession.user_id == current_user.id).first()
-    if not resume:
-        raise HTTPException(404, "Resume not found")
-    if req.job_url:
-        public_url(req.job_url)
-    active = db.query(ResearchJob).filter(ResearchJob.user_id == current_user.id,
-                                        ResearchJob.status.in_(["pending", "running"])).all()
-    for job in active:
-        if not expired(job):
+    key = idempotency_key or uuid.uuid4().hex
+    fingerprint = hashlib.sha256(json.dumps(req.model_dump(), sort_keys=True).encode()).hexdigest()
+    try:
+        # Lock one account for the whole admission transaction (also serializes
+        # SQLite writes). No in-memory lock is needed for duplicate admission.
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("SELECT pg_advisory_xact_lock(731439)"))
+        db.execute(update(User).where(User.id == current_user.id).values(updated_at=User.updated_at))
+        previous = db.get(ResearchSubmission, (current_user.id, key))
+        if previous:
+            if previous.fingerprint != fingerprint: raise HTTPException(409, "This request key was already used with different inputs.")
+            job = db.get(ResearchJob, previous.job_id)
+            db.commit()
+            return {"id": job.id, "status": job.status}
+        resume = db.query(ResumeSession).filter(ResumeSession.id == req.resume_id, ResumeSession.user_id == current_user.id).first()
+        if not resume: raise HTTPException(404, "Resume not found")
+        if req.job_url: public_url(req.job_url)
+        active = db.query(ResearchJob).filter(ResearchJob.user_id == current_user.id, ResearchJob.status.in_(["pending", "running"])).all()
+        for job in active:
+            if not expired(job): raise HTTPException(409, "Research is already running. Wait for it to finish.")
+            job.status, job.error, job.request_data = "failed", "Research timed out. Please retry.", {}
+            release_slot(db, job)
+        recent = db.query(ResearchJob).filter(ResearchJob.user_id == current_user.id, ResearchJob.created_at > now()-timedelta(hours=1)).count()
+        if recent >= 12: raise HTTPException(429, "Hourly research limit reached. Try again later.", headers={"Retry-After": "3600"})
+        if db.query(ResearchJob).filter(ResearchJob.status.in_(["pending", "running"])).count() >= 100:
+            raise HTTPException(503, "Research queue is full. Please retry shortly.", headers={"Retry-After": "60"})
+        slot = db.get(ResearchSlot, current_user.id)
+        if slot is None:
+            slot = ResearchSlot(user_id=current_user.id)
+            db.add(slot); db.flush()
+        job = ResearchJob(user_id=current_user.id, request_data=req.model_dump())
+        db.add(job); db.flush()
+        if not db.execute(update(ResearchSlot).where(ResearchSlot.user_id == current_user.id, ResearchSlot.job_id.is_(None)).values(job_id=job.id)).rowcount:
             raise HTTPException(409, "Research is already running. Wait for it to finish.")
-        job.status, job.error, job.request_data = "failed", "Research interrupted or timed out. Please retry.", {}
-    job = ResearchJob(user_id=current_user.id, request_data=req.model_dump())
-    db.add(job)
-    db.commit()
-    db.refresh(job)
-    background.add_task(run_research, job.id)
-    return {"id": job.id, "status": "pending"}
+        db.add(ResearchSubmission(user_id=current_user.id, request_key=key, fingerprint=fingerprint, job_id=job.id))
+        db.commit()
+        return {"id": job.id, "status": "pending"}
+    except (IntegrityError, OperationalError) as exc:
+        db.rollback()
+        raise HTTPException(409, "Research admission is busy. Retry the same request shortly.") from exc
+    except HTTPException:
+        db.rollback(); raise
 
 
 @router.get("/analysis/research/{job_id}")
@@ -53,6 +83,7 @@ def research_status(job_id: int, db: Session = Depends(get_db), current_user: Us
         raise HTTPException(404, "Research not found")
     if job.status in ("pending", "running") and expired(job):
         job.status, job.error, job.request_data = "failed", "Research interrupted or timed out. Please retry.", {}
+        release_slot(db, job)
         db.commit()
     report = None
     if job.report_id:
@@ -112,8 +143,25 @@ def analyze_role(req: AnalysisRequest, db: Session = Depends(get_db), current_us
 
 
 @router.get("/analysis/reports", response_model=List[CareerReportResponse])
-def get_all_reports(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(CareerReport).filter(CareerReport.user_id == current_user.id).order_by(CareerReport.created_at.desc()).all()
+def get_all_reports(limit: int = Query(20, ge=1, le=50), before: int | None = Query(None, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(CareerReport).filter(CareerReport.user_id == current_user.id)
+    if before: query = query.filter(CareerReport.id < before)
+    return query.order_by(CareerReport.id.desc()).limit(limit).all()
+
+
+@router.get("/analysis/report-summaries")
+def report_summaries(limit: int = Query(20, ge=1, le=50), before: int | None = Query(None, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(CareerReport.id, CareerReport.job_role, CareerReport.experience_level, CareerReport.created_at).filter(CareerReport.user_id == current_user.id)
+    if before: query = query.filter(CareerReport.id < before)
+    rows = query.order_by(CareerReport.id.desc()).limit(limit+1).all()
+    return {"items": [dict(row._mapping) for row in rows[:limit]], "next_before": rows[limit-1].id if len(rows)>limit else None}
+
+
+@router.get("/analysis/reports/{report_id}", response_model=CareerReportResponse)
+def report_detail(report_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    report = db.query(CareerReport).filter(CareerReport.id == report_id, CareerReport.user_id == current_user.id).first()
+    if not report: raise HTTPException(404, "Report not found")
+    return report
 
 
 @router.post("/roadmap/generate/{report_id}", response_model=RoadmapResponse)
@@ -142,11 +190,11 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
     recent = db.query(CareerReport).filter(CareerReport.user_id == current_user.id).order_by(CareerReport.created_at.desc()).limit(5).all()
     
     return DashboardOverviewResponse(
-        ats_score=latest_report.ats_score if latest_report else 0.0,
-        resume_score=latest_report.resume_score if latest_report else 0.0,
-        readiness_score=latest_report.readiness_score if latest_report else 0.0,
-        interview_score=0.0,
-        learning_progress_percent=0.0,
+        ats_score=None,
+        resume_score=None,
+        readiness_score=None,
+        interview_score=None,
+        learning_progress_percent=None,
         completed_projects_count=0,
         resumes_count=resumes_count,
         reports_count=reports_count,
@@ -155,7 +203,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
                 id=r.id,
                 job_role=r.job_role,
                 experience_level=r.experience_level,
-                ats_score=r.ats_score,
+                ats_score=None,
                 created_at=r.created_at
             ) for r in recent
         ]

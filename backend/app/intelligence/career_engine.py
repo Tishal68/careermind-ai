@@ -22,17 +22,16 @@ class CareerIntelligenceEngine:
 
         ratio = len(matched) / max(len(required_skills), 1)
         ats_score = round(ratio * 100, 1)
-        qual_score = round(min(100.0, max(60.0, len(extracted_skills) * 4.0 + 50.0)), 1)
-        readiness_score = round(ats_score * 0.5 + qual_score * 0.5, 1)
+        # Keyword overlap is not an ATS, writing-quality or hiring-readiness test.
 
         market_insights = market_engine.get_market_insights(job_role)
 
         return {
-            "ats_score": ats_score,
+            "ats_score": None,
             "match_percent": ats_score,
-            "resume_score": qual_score,
-            "readiness_score": readiness_score,
-            "nex_score": round(ats_score * 0.4 + qual_score * 0.3 + readiness_score * 0.3, 1),
+            "resume_score": None,
+            "readiness_score": None,
+            "nex_score": ats_score,
             "matched_skills": matched,
             "missing_skills": missing,
             "market_insights": market_insights

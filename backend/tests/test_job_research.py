@@ -162,6 +162,7 @@ def test_background_api_persists_report_and_coach_sources(client, monkeypatch):
     response = api.post("/api/v1/analysis/research", json={
         **request(search_market=False, job_description=TEXT).model_dump(), "resume_id": uploaded["id"]})
     assert response.status_code == 202, response.text
+    research_worker.run_research(response.json()["id"])
     state = api.get(f'/api/v1/analysis/research/{response.json()["id"]}').json()
     assert state["status"] == "completed", state
     assert state["report"]["job_role"] == "Designer"  # Not one of the static roles
@@ -179,6 +180,7 @@ def test_background_failures_and_foreign_status_are_private(client, monkeypatch)
     uploaded = upload(api, RESUME)
     response = api.post("/api/v1/analysis/research", json={
         **request(search_market=False, job_description=TEXT).model_dump(), "resume_id": uploaded["id"]})
+    research_worker.run_research(response.json()["id"])
     state = api.get(f'/api/v1/analysis/research/{response.json()["id"]}').json()
     assert state["status"] == "failed"
     assert "usage limit" in state["error"]

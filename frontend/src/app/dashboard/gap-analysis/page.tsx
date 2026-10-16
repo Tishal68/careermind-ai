@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/UIComponents';
 import { Uploader, GapBreakdown, JOB_ROLES } from '@/components/FeatureComponents';
 import { fetchApi } from '@/lib/api';
@@ -23,9 +23,10 @@ export default function GapAnalysisPage() {
   const [searchMarket, setSearchMarket] = useState(true);
   const [jobId, setJobId] = useState<number | null>(null);
   const [progress, setProgress] = useState('');
+  const submission = useRef<{body: string; key: string} | null>(null);
 
   useEffect(() => {
-    Promise.allSettled([fetchApi<any[]>('/resume/my-resumes'), fetchApi<any[]>('/analysis/reports')])
+    Promise.allSettled([fetchApi<any[]>('/resume/my-resumes'), fetchApi<any[]>('/analysis/reports?limit=1')])
       .then(([fileResult, reportResult]) => {
         const files = fileResult.status === 'fulfilled' ? fileResult.value : [];
         const reports = reportResult.status === 'fulfilled' ? reportResult.value : [];
@@ -60,12 +61,13 @@ export default function GapAnalysisPage() {
         failures = 0;
         if (state.status === 'completed' || state.status === 'failed') {
           localStorage.removeItem('careermind_research_job');
+          submission.current = null;
           setJobId(null); setBusy(false); setProgress('');
           if (state.report) setReport(state.report);
           else setError(state.error || 'Research failed. Please retry.');
           return;
         }
-        setProgress(state.status === 'pending' ? 'Preparing research…' : 'Reading job pages and comparing requirements with your resume. This may take a few minutes…');
+        setProgress(state.status === 'pending' ? 'Queued for research. Your task will start when a worker is available…' : 'Reading job pages and comparing requirements with your resume. This may take a few minutes…');
       } catch (err: any) {
         if (stopped) return;
         failures++;
@@ -91,10 +93,11 @@ export default function GapAnalysisPage() {
     if (validation) { setError(validation); return; }
     setBusy(true); setError(''); setProgress('Starting research…');
     try {
+      const body = JSON.stringify({ resume_id: Number(resumeId), job_role: role.trim(), location: location.trim() || 'Worldwide', experience_level: level,
+        remote, company, job_url: jobUrl, job_description: description, search_market: searchMarket, refresh });
+      if (submission.current?.body !== body) submission.current = {body, key: crypto.randomUUID()};
       const job = await fetchApi<any>('/analysis/research', {
-        method: 'POST',
-        body: JSON.stringify({ resume_id: Number(resumeId), job_role: role.trim(), location: location.trim() || 'Worldwide', experience_level: level,
-          remote, company, job_url: jobUrl, job_description: description, search_market: searchMarket, refresh }),
+        method: 'POST', headers: {'Idempotency-Key': submission.current!.key}, body,
       });
       localStorage.setItem('careermind_research_job', String(job.id));
       setJobId(job.id); setReport(null);

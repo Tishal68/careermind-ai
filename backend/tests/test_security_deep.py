@@ -158,7 +158,8 @@ def test_new_account_has_no_fabricated_progress(secured):
     client,_=secured
     _,headers=account(client)
     data=client.get('/api/v1/dashboard/overview',headers=headers).json()
-    assert data['resumes_count']==data['completed_projects_count']==data['learning_progress_percent']==0
+    assert data['resumes_count']==data['completed_projects_count']==0
+    assert data['learning_progress_percent'] is None
 
 
 def test_api_responses_are_not_cacheable():

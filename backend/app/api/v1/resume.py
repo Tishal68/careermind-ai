@@ -101,7 +101,7 @@ def run_auto_pipeline(
         resume_score=career_eval["resume_score"],
         ats_score=career_eval["ats_score"],
         readiness_score=career_eval["readiness_score"],
-        analysis_data={"matched_skills": career_eval["matched_skills"], "strengths": ["Solid baseline skills"]},
+        analysis_data={"matched_skills": career_eval["matched_skills"], "match_percent": career_eval["match_percent"], "match_label": "Keyword overlap with role requirements"},
         gap_analysis={"missing_skills": career_eval["missing_skills"]},
         roadmap_data={"milestones": roadmap_milestones},
         project_recommendations=projects

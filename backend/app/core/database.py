@@ -11,11 +11,16 @@ if database_url.startswith(("postgres://", "postgresql://")):
 # Configure engine based on SQLite vs PostgreSQL
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+    connect_args = {"check_same_thread": False, "timeout": 3}
+
+if database_url.startswith("postgresql"):
+    connect_args["connect_timeout"] = 3
+    connect_args["options"] = "-c statement_timeout=3000 -c lock_timeout=3000"
 
 engine = create_engine(
     database_url,
     connect_args=connect_args,
+    **({"pool_timeout": 3} if database_url not in ("sqlite://", "sqlite:///:memory:") else {}),
     pool_pre_ping=True if not settings.DATABASE_URL.startswith("sqlite") else False,
 )
 

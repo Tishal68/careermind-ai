@@ -6,6 +6,7 @@ import { fetchApi } from '@/lib/api';
 import { Bot, Send, Trash2 } from 'lucide-react';
 
 export default function CareerCoachPage() {
+  const [before, setBefore] = useState<number | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [context, setContext] = useState<any>(null);
   const [input, setInput] = useState('');
@@ -16,7 +17,7 @@ export default function CareerCoachPage() {
 
   useEffect(() => {
     Promise.all([fetchApi<any>('/chat/history'), fetchApi<any>('/chat/context')])
-      .then(([history, ctx]) => { setMessages(history.messages); setContext(ctx); })
+      .then(([history, ctx]) => { setMessages(history.messages); setBefore(history.next_before); setContext(ctx); })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -33,9 +34,16 @@ export default function CareerCoachPage() {
     } catch (err: any) { setError(err.message || 'The coach could not reply. Please try again.'); }
     finally { setBusy(false); }
   }
+  async function older() {
+    if (!before || busy) return;
+    setBusy(true); setError('');
+    try { const page = await fetchApi<any>(`/chat/history?before=${before}`); setMessages(prev => [...page.messages, ...prev]); setBefore(page.next_before); }
+    catch (err: any) { setError(err.message); }
+    finally { setBusy(false); }
+  }
   async function clear() {
     setBusy(true); setError('');
-    try { await fetchApi('/chat/clear', {method: 'DELETE'}); setMessages([]); }
+    try { await fetchApi('/chat/clear', {method: 'DELETE'}); setMessages([]); setBefore(null); }
     catch (err: any) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -46,6 +54,7 @@ export default function CareerCoachPage() {
       <section className="rounded-2xl border border-white/10 bg-slate-900/50 overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-white/10"><span className="flex items-center gap-2 text-sm"><Bot className="w-5 h-5 text-emerald-400" />Career conversation</span><button aria-label="Clear conversation" onClick={clear} disabled={busy || !messages.length} className="p-2 text-slate-400 hover:text-white disabled:opacity-30"><Trash2 className="w-4 h-4" /></button></div>
         <div className="h-[460px] overflow-y-auto p-4 sm:p-6 space-y-5" aria-live="polite" aria-busy={busy}>
+          {before && <button onClick={older} disabled={busy} className="text-sm text-emerald-300 underline">Load older messages</button>}
           {!messages.length && <div className="text-slate-300 text-sm leading-relaxed p-4 rounded-xl bg-slate-800/50">{loading ? 'Loading your conversation…' : context ? `Your ${context.job_role} analysis is ready. Ask me which skill to learn first, how to build a relevant project, or how to improve your resume.` : 'Start by analyzing a resume and selecting a role. Your coach will use that result to give you relevant guidance.'}</div>}
           {messages.map((message, index) => <div key={message.id || index} className={`rounded-xl p-4 text-sm max-w-[92%] ${message.role === 'user' ? 'ml-auto bg-emerald-900/50 border border-emerald-500/20' : 'bg-slate-800/60'}`}><p className="text-xs font-bold text-emerald-400 mb-2">{message.role === 'user' ? 'You' : 'Career coach'}</p><p className="whitespace-pre-wrap leading-relaxed break-words">{message.content}</p></div>)}
           {busy && <p className="text-emerald-400 text-sm">Working on your request…</p>}<div ref={bottom} />

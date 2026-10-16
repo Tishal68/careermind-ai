@@ -9,35 +9,37 @@ import { Settings, Target, Cpu, Key, Trash2, CheckCircle2, ShieldCheck } from 'l
 export default function SettingsPage() {
   const { user } = useAuth();
   const [targetRole, setTargetRole] = useState(user?.target_job_role || 'AI Engineer');
-  const [preferredModel, setPreferredModel] = useState(user?.preferred_ai_model || 'gemini-2.5-flash');
-  const [apiKey, setApiKey] = useState('');
+  const [preferredModel, setPreferredModel] = useState('Loading…');
+  const [error, setError] = useState('');
+  const [provider, setProvider] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     fetchApi<any>('/user/settings')
       .then(data => {
+        setProvider(data);
         if (data.target_job_role) setTargetRole(data.target_job_role);
         if (data.preferred_ai_model) setPreferredModel(data.preferred_ai_model);
       })
-      .catch(() => {});
+      .catch(err => setError(err.message));
   }, []);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setSuccessMsg('');
+    setSuccessMsg(''); setError('');
     try {
       await fetchApi('/user/settings', {
         method: 'PUT',
         body: JSON.stringify({
           target_job_role: targetRole,
-          preferred_ai_model: preferredModel,
+
         })
       });
-      setSuccessMsg('NexPath settings saved successfully.');
-    } catch {
-      alert('Error saving settings.');
+      setSuccessMsg('CareerMind settings saved successfully.');
+    } catch (err: any) {
+      setError(err.message || 'Could not save settings.');
     } finally {
       setIsSaving(false);
     }
@@ -49,9 +51,10 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-extrabold text-white flex items-center gap-2.5">
           <Settings className="w-6 h-6 text-emerald-400" /> Platform Settings & Preferences
         </h1>
-        <p className="text-xs text-slate-400 mt-1">Configure your career goal, preferred AI intelligence model, and session settings.</p>
+        <p className="text-xs text-slate-400 mt-1">Set your career goal and view the configured research model.</p>
       </div>
 
+      {error && <p role="alert" className="text-rose-300">{error}</p>}
       {successMsg && (
         <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -66,8 +69,8 @@ export default function SettingsPage() {
             <Target className="w-4 h-4 text-emerald-400" /> Primary Career Goal
           </h2>
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Target Job Role</label>
-            <select
+            <label htmlFor="settings-role" className="block text-xs font-semibold text-slate-300 mb-1.5">Target Job Role</label>
+            <select id="settings-role"
               value={targetRole}
               onChange={(e) => setTargetRole(e.target.value)}
               className="w-full bg-[#070c14] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none"
@@ -84,20 +87,11 @@ export default function SettingsPage() {
         {/* AI Model Selection */}
         <Card className="p-6 bg-[#0b1320] border-white/10 space-y-4">
           <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Cpu className="w-4 h-4 text-orange-400" /> Preferred AI Model
+            <Cpu className="w-4 h-4 text-orange-400" /> Configured AI Model
           </h2>
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">Select Model Engine</label>
-            <select
-              value={preferredModel}
-              onChange={(e) => setPreferredModel(e.target.value)}
-              className="w-full bg-[#070c14] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none"
-            >
-              <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Recommended - Ultra Fast)</option>
-              <option value="gemini-1.5-pro">Google Gemini 1.5 Pro (Deep Reasoning)</option>
-              <option value="gemini-2.0-flash">Google Gemini 2.0 Flash</option>
-            </select>
-          </div>
+          <p className="text-base text-emerald-300 break-words">{preferredModel}</p>
+          <p className="text-sm text-slate-400">Research uses this service-configured Ollama model. Contact the administrator to change it.</p>
+          {provider && <p className="text-sm text-slate-400">Coach: {provider.coach_provider} / {provider.coach_model}. Provider fallback {provider.fallback_enabled ? 'enabled' : 'disabled'}.</p>}
         </Card>
 
         <Button type="submit" isLoading={isSaving} leftIcon={<CheckCircle2 className="w-4 h-4" />}>

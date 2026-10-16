@@ -1,4 +1,7 @@
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from app.core.database import engine
 from app.schemas import HealthCheck
 from app.core.config import settings
 from app.api.v1.auth import router as auth_router
@@ -15,6 +18,15 @@ api_router = APIRouter()
 @api_router.get("/health", response_model=HealthCheck, tags=["Health"])
 def health_check():
     return HealthCheck(status="healthy", project="CareerMind AI", version=settings.VERSION)
+
+@api_router.get("/ready", tags=["Health"])
+def readiness():
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT id FROM users LIMIT 0"))
+        return {"status": "ready"}
+    except Exception:
+        return JSONResponse({"status": "unavailable"}, status_code=503)
 
 # Include v1 Domain Routers
 api_router.include_router(auth_router)

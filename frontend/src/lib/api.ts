@@ -37,6 +37,7 @@ export async function fetchApi<T>(
 
     if (response.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/auth/')) {
       localStorage.removeItem('careermind_token');
+      localStorage.removeItem('careermind_research_job');
       window.location.assign('/login');
     }
     if (response.status === 204) return undefined as T;

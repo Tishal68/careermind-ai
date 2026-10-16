@@ -16,6 +16,8 @@ from app.models.report import CareerReport
 from app.models.research import ResearchJob, ResearchSlot, ResearchSubmission
 from app.schemas import ResearchRequest
 from app.services.job_research import public_url
+from app.services import action_plans
+from app.schemas import ActionTaskUpdate
 from app.services.research_worker import expired, release_slot, now
 from app.schemas import (
     AnalysisRequest, CareerReportResponse, DashboardOverviewResponse,
@@ -23,8 +25,6 @@ from app.schemas import (
 )
 from app.intelligence.career_engine import career_engine
 from app.intelligence.career_graph import career_graph
-from app.intelligence.learning_engine import learning_engine
-from app.intelligence.recommendation_engine import recommendation_engine
 
 router = APIRouter(tags=["Reports & Analytics"])
 
@@ -164,22 +164,31 @@ def report_detail(report_id: int, db: Session = Depends(get_db), current_user: U
     return report
 
 
+@router.get("/analysis/reports/{report_id}/action-plan")
+def read_action_plan(report_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return action_plans.response(action_plans.owned_report(db, current_user.id, report_id))
+
+
+@router.post("/analysis/reports/{report_id}/action-plan")
+def create_action_plan(report_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return action_plans.create_plan(db, current_user.id, report_id)
+
+
+@router.patch("/analysis/reports/{report_id}/action-plan/tasks/{task_id}")
+def update_action_task(report_id: int, task_id: str, change: ActionTaskUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return action_plans.save_task(db, current_user.id, report_id, task_id, change.revision, change.is_completed)
+
+
 @router.post("/roadmap/generate/{report_id}", response_model=RoadmapResponse)
 def generate_roadmap(report_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    report = db.query(CareerReport).filter(CareerReport.id == report_id, CareerReport.user_id == current_user.id).first()
-    if not report:
-        raise HTTPException(status_code=404, detail="Report not found")
-    
-    missing_skills = (report.gap_analysis or {}).get("missing_skills", [])
-    milestones = learning_engine.build_learning_path(report.job_role, missing_skills)
-    report.roadmap_data = {"milestones": milestones}
-    db.commit()
-    return RoadmapResponse(report_id=report.id, job_role=report.job_role, total_weeks=len(milestones), milestones=milestones)
+    plan = action_plans.create_plan(db, current_user.id, report_id)
+    return {**plan, "total_weeks": len(plan["milestones"])}
 
 
 @router.get("/projects/recommendations", response_model=List[ProjectRecommendation])
-def get_projects(job_role: str = "AI Engineer", experience_level: str = "Mid-Level", current_user: User = Depends(get_current_user)):
-    return recommendation_engine.recommend_projects(job_role, experience_level)
+def get_projects(report_id: int = Query(gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    report = action_plans.owned_report(db, current_user.id, report_id)
+    return action_plans.build_plan(report)["projects"]
 
 
 @router.get("/dashboard/overview", response_model=DashboardOverviewResponse)

@@ -1,93 +1,54 @@
-# CareerMind AI — Resume match and Ollama career coach
+# CareerMind AI
 
-The main workspace accepts any job role, location and experience level. It researches
-job postings through Ollama web search, ranks comparable openings by resume evidence,
-summarizes recurring requirements, and compares an optional company job description.
-An Ollama career coach uses the saved results to help with learning and applications.
-See **[RUN_LOCAL.md](RUN_LOCAL.md)** for local setup and **[RENDER_SETUP.md](RENDER_SETUP.md)** for Render with Ollama Cloud.
-See **[JOB_RESEARCH.md](JOB_RESEARCH.md)** for behavior, limits, and API details.
-The older platform features described below remain in the repository.
+CareerMind compares resume evidence with job requirements and helps you plan practical next steps. It uses Next.js, FastAPI and SQLAlchemy with configured Ollama/Gemini providers.
 
-## Original platform documentation
+## Main workflow
 
-NexPath is a production-grade, AI-powered Career Operating System built with **Next.js 14+**, **FastAPI**, **SQLAlchemy**, and **Google Gemini AI**. Designed as a high-performance SaaS platform, it empowers users to parse resumes, audit ATS readability, compute skill gaps against specialized tech roles, track weekly learning roadmaps, interact with an AI career coach, and practice real-time mock interviews.
+1. Create an account and upload a text-based PDF or DOCX resume (up to 5 MB).
+2. Inspect the extracted text. The quick keyword preview covers a limited technical vocabulary; it is not a complete assessment of your skills.
+3. Enter any professional job title, location and experience level. Supply a company job description or enable market research.
+4. Review **best-fit openings** separately from **typical requirements**. Evidence coverage uses validated source and resume quotations; it is not an ATS score or hiring prediction.
+5. Create a report-specific action plan, save task progress, and discuss results with the career coach.
+6. Practice interviews for your chosen profession and review AI feedback before moving to the next question.
 
----
+Custom job titles are accepted across research, settings and interview practice. This does not guarantee model expertise or available job sources for every profession. Professional registration and eligibility need independent verification. Provider failures and insufficient evidence are surfaced rather than replaced with invented results.
 
-## 🚀 Key Features
+## Setup and deployment
 
-1. **JWT Authentication & Security**: Secure registration, login, token refresh, and user profile management using bcrypt password hashing.
-2. **Multi-Format Resume Parser**: PDF and DOCX parser extracting technical skills, soft skills, tools, education, work experience, and contact data.
-3. **Gemini Skill Gap Analysis**: Detailed scoring across ATS Compatibility, Resume Quality, and Career Readiness against 8 fields and 9 tech roles.
-4. **Personalized Learning Roadmaps**: 4-8 week structured milestone timelines with task checkboxes, hour estimates, and curated learning resources.
-5. **Project Recommendation Engine**: Targeted portfolio project cards matched to missing candidate skills.
-6. **AI Career Assistant (RAG Chatbot)**: Notion/ChatGPT-style glassmorphic streaming interface backed by TF-IDF / FAISS vector retrieval and full resume context awareness.
-7. **AI Mock Interview Arena**: Interactive simulator supporting Technical, HR, Behavioral, and Mixed interviews with instant Gemini scoring and model answer feedback.
-8. **Unified Dashboard & Analytics**: Executive command center consolidating metrics, skill progress gauges, and recent evaluation reports.
+- [Local setup](RUN_LOCAL.md)
+- [Render deployment and environment settings](RENDER_SETUP.md)
+- [Research behavior, evidence and limits](JOB_RESEARCH.md)
 
----
+The root Dockerfile runs Next.js and FastAPI together. Configure provider credentials privately; never commit secrets. The current free Render deployment uses temporary storage: accounts, resumes and reports can be lost on redeployment. Persistent production storage remains a separate infrastructure task.
 
-## 📁 Directory Structure
+## Verification
 
-```
-careermind-ai/
-├── frontend/                     # Next.js 14+ App Router Frontend
-│   ├── src/
-│   │   ├── app/                 # Pages (Workspace, Coach, Reports, Settings)
-│   │   ├── components/          # UI, Workspace, Coach, Reports components
-│   │   ├── context/             # Auth, Session, Career, Workspace contexts
-│   │   ├── hooks/               # Domain hooks (useWorkspace, useCoach, etc.)
-│   │   ├── services/            # API client services
-│   ├── package.json
-│   └── tailwind.config.js
-├── backend/                      # FastAPI Python Backend
-│   ├── app/
-│   │   ├── api/v1/              # Domain REST API Endpoints
-│   │   ├── core/                # Database engine, JWT security, Config
-│   │   ├── intelligence/        # 15 Product Intelligence Engines & AI Command Center
-│   │   ├── kernel/              # Career OS Kernel Source of Truth
-│   │   ├── models/              # SQLAlchemy ORM models
-│   │   ├── repositories/        # Repository Layer
-│   │   ├── services/            # Domain Services
-│   │   └── main.py              # FastAPI app entry point
-│   ├── requirements.txt
-│   └── Dockerfile
-├── render.yaml                  # Render Blueprint deployment configuration
-├── docker-compose.yml           # Docker container setup
-└── README.md
+Backend (from `backend`):
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
 ```
 
----
+Frontend (from `frontend`):
 
-## 🌐 Deploying on Render
-
-Use the root Dockerfile and the updated Docker Blueprint. Add your Ollama Cloud key and model settings as described in **[RENDER_SETUP.md](RENDER_SETUP.md)**, then redeploy. The Docker service starts both Next.js and FastAPI.
-
----
-
-## ⚡ How to Run Locally
-
-### 1. Start FastAPI Backend
-```bash
-cd backend
-py -m pip install -r requirements.txt
-py -m uvicorn app.main:app --reload --port 8000
+```sh
+npm ci
+npm test
+npm run build
+npx playwright install chromium
+npm run test:ui
 ```
-Backend API interactive docs: `http://localhost:8000/docs`
 
-### 2. Start Next.js Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-Frontend web application: `http://localhost:3000`
+GitHub Actions also checks dependencies and runs a smoke test against the production Docker image. Automated checks do not establish that all providers, professions or real-world inputs are error-free.
 
----
+## Code map
 
-## 🧪 Testing
+- `frontend/src/app`: research, reports, resume management, action plans, coach, interviews and settings.
+- `frontend/src/context/AuthContext.tsx`: account/session state.
+- `backend/app/api/v1`: authenticated API endpoints.
+- `backend/app/services`: document parsing, evidence-based research, background research processing and action plans.
+- `backend/app/models`: persisted accounts, resumes, research jobs, reports and interviews.
+- `backend/app/intelligence`: older curated engines retained for compatibility. Their fixed technology profiles are not the universal role-research system.
 
-Run the automated system diagnostic test suite:
-```bash
-py test_e2e.py
-```
+See [Part 1](PART_1_ACTION_PLANS.md), [Part 2](PART_2_ACCOUNT_LOADING.md) and [Part 3](PART_3_OPEN_ROLES.md) for implementation boundaries and validation notes.

@@ -19,7 +19,7 @@ export default function NotFound() {
           href="/"
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0F5E4E] text-white text-xs font-semibold hover:bg-emerald-700 transition-all"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to NexPath
+          <ArrowLeft className="w-4 h-4" /> Back to CareerMind AI
         </Link>
       </div>
     </div>

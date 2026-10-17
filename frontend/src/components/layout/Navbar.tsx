@@ -19,7 +19,7 @@ export const Navbar: React.FC = () => {
             <Compass className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-lg font-extrabold text-white tracking-tight">NexPath</span>
+            <span className="text-lg font-extrabold text-white tracking-tight">CareerMind AI</span>
             <span className="hidden sm:inline-block ml-2.5 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-emerald-400 border border-emerald-500/20">
               AI Career OS
             </span>

@@ -12,6 +12,7 @@ const items = [
   { title: 'My resumes', href: '/dashboard/resume', icon: FileText },
   { title: 'Reports', href: '/dashboard/reports', icon: FileText },
   { title: 'Action plan', href: '/dashboard/roadmap', icon: Target },
+  { title: 'Interview practice', href: '/dashboard/interview', icon: Bot },
   { title: 'Settings', href: '/dashboard/settings', icon: Compass },
 ];
 

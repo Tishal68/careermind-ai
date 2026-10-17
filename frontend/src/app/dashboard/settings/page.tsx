@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Input } from '@/components/UIComponents';
+import JobRoleInput from '@/components/JobRoleInput';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Settings, Target, Cpu, Key, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, updateTargetRole } = useAuth();
+  const edited = useRef(false);
   const [targetRole, setTargetRole] = useState(user?.target_job_role || 'AI Engineer');
   const [preferredModel, setPreferredModel] = useState('Loading…');
   const [error, setError] = useState('');
@@ -16,27 +18,31 @@ export default function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
-    fetchApi<any>('/user/settings')
+    const controller = new AbortController();
+    fetchApi<any>('/user/settings', {signal: controller.signal})
       .then(data => {
         setProvider(data);
-        if (data.target_job_role) setTargetRole(data.target_job_role);
+        if (!edited.current && data.target_job_role) setTargetRole(data.target_job_role);
         if (data.preferred_ai_model) setPreferredModel(data.preferred_ai_model);
       })
-      .catch(err => setError(err.message));
+      .catch(err => { if (!controller.signal.aborted) setError(err.message); });
+    return () => controller.abort();
   }, []);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (targetRole.trim().length < 2) { setError('Enter a job title of 2 to 100 characters.'); return; }
     setIsSaving(true);
     setSuccessMsg(''); setError('');
     try {
-      await fetchApi('/user/settings', {
+      const saved = await fetchApi<any>('/user/settings', {
         method: 'PUT',
         body: JSON.stringify({
-          target_job_role: targetRole,
+          target_job_role: targetRole.trim(),
 
         })
       });
+      if (user && saved.user?.target_job_role) updateTargetRole(user.id, saved.user.target_job_role);
       setSuccessMsg('CareerMind settings saved successfully.');
     } catch (err: any) {
       setError(err.message || 'Could not save settings.');
@@ -70,17 +76,7 @@ export default function SettingsPage() {
           </h2>
           <div>
             <label htmlFor="settings-role" className="block text-xs font-semibold text-slate-300 mb-1.5">Target Job Role</label>
-            <select id="settings-role"
-              value={targetRole}
-              onChange={(e) => setTargetRole(e.target.value)}
-              className="w-full bg-[#070c14] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-emerald-500 outline-none"
-            >
-              <option value="AI Engineer">AI Engineer</option>
-              <option value="Machine Learning Engineer">Machine Learning Engineer</option>
-              <option value="Data Scientist">Data Scientist</option>
-              <option value="Generative AI Engineer">Generative AI Engineer</option>
-              <option value="Software Development">Software Developer</option>
-            </select>
+            <JobRoleInput id="settings-role" value={targetRole} onChange={value => { edited.current = true; setTargetRole(value); setSuccessMsg(''); }} />
           </div>
         </Card>
 

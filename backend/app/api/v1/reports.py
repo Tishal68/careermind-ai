@@ -100,8 +100,8 @@ def analyze_role(req: AnalysisRequest, db: Session = Depends(get_db), current_us
     ).first()
     if resume is None:
         raise HTTPException(status_code=404, detail="Resume not found")
-    if req.job_role.lower() not in career_graph.roles:
-        raise HTTPException(status_code=400, detail="Select a supported job role")
+    if req.job_role.strip().lower() not in career_graph.roles:
+        raise HTTPException(status_code=400, detail="This legacy keyword endpoint only has curated technology profiles. Use /api/v1/analysis/research for any professional role with a job description or market sources.")
 
     parsed = resume.parsed_data or {}
     skills = list(dict.fromkeys(parsed.get("technical_skills", []) + parsed.get("tools_frameworks", [])))

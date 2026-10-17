@@ -3,18 +3,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAccountResource } from '@/hooks/useAccountResource';
 import { Card } from '@/components/UIComponents';
-import { Uploader, GapBreakdown, JOB_ROLES } from '@/components/FeatureComponents';
+import { Uploader, GapBreakdown } from '@/components/FeatureComponents';
+import JobRoleInput from '@/components/JobRoleInput';
+import { useAuth } from '@/context/AuthContext';
 import { fetchApi } from '@/lib/api';
 import { Target, FileText, ArrowRight } from 'lucide-react';
 
 export default function GapAnalysisPage() {
+  const { user } = useAuth();
   const saved = useAccountResource<any[]>('/resume/my-resumes');
   const recent = useAccountResource<any[]>('/analysis/reports?limit=1');
   const resumes = saved.data || [];
   const restored = useRef(false);
   const edited = useRef(false);
   const [resumeId, setResumeId] = useState('');
-  const [role, setRole] = useState(JOB_ROLES[0]);
+  const [role, setRole] = useState(user?.target_job_role || '');
   const [report, setReport] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const loading = saved.loading && saved.data === null;
@@ -126,8 +129,8 @@ export default function GapAnalysisPage() {
       <fieldset onChange={() => { edited.current = true; }} disabled={busy || loading} className="space-y-5 min-w-0">
         <Card glass className="space-y-4">
           <label htmlFor="target-role" className="flex items-center gap-2 font-bold text-white"><Target className="w-5 h-5 text-emerald-400" />1. Choose your target role</label>
-          <input id="target-role" list="role-suggestions" maxLength={100} value={role} onChange={e => { setRole(e.target.value); setReport(null); }} placeholder="e.g. Product Designer, Accountant" className="w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white" />
-          <datalist id="role-suggestions">{JOB_ROLES.map(r => <option key={r} value={r} />)}</datalist>
+          <JobRoleInput id="target-role" value={role} onChange={value => { edited.current = true; setRole(value); setReport(null); }} />
+          <p className="text-xs text-slate-400">For specialized or regulated professions, paste the actual job description and choose the relevant location. Results compare evidence; they do not verify professional licenses or eligibility.</p>
           <label className="block text-sm text-slate-300">Target location (optional)<input value={location} maxLength={150} onChange={e => setLocation(e.target.value)} placeholder="Worldwide, or enter a city / country" className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white" /></label>
           <label className="block text-sm text-slate-300">Experience level<select value={level} onChange={e => setLevel(e.target.value)} className="mt-2 w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white">{['Internship', 'Entry-level', 'Junior', 'Mid-Level', 'Senior', 'Lead', 'Any'].map(l => <option key={l}>{l}</option>)}</select></label>
           <label className="flex gap-2 text-sm text-slate-300"><input type="checkbox" checked={remote} onChange={e => setRemote(e.target.checked)} />Remote opportunities only</label>

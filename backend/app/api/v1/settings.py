@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.config import settings
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.core.database import get_db
 from app.deps import get_current_user
@@ -25,7 +25,8 @@ def get_user_settings(current_user: User = Depends(get_current_user)):
 
 
 class SettingsUpdate(BaseModel):
-    target_job_role: str = Field(default="AI Engineer", min_length=1, max_length=100)
+    model_config = ConfigDict(str_strip_whitespace=True)
+    target_job_role: str = Field(default="AI Engineer", min_length=2, max_length=100)
     preferred_ai_model: str | None = None
     full_name: str = Field(default="", max_length=255)
 

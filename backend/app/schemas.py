@@ -208,6 +208,7 @@ class ChatHistoryResponse(BaseModel):
 
 # Interview Simulator
 class StartInterviewRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
     interview_type: str = Field("Technical", pattern="^(Technical|Behavioral|HR|Mixed)$", json_schema_extra={"example": "Technical"})
     target_role: str = Field("AI Engineer", min_length=2, max_length=100, json_schema_extra={"example": "AI Engineer"})
 

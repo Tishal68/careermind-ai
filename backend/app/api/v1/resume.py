@@ -5,7 +5,7 @@ import shutil
 from app.core.config import settings
 from app.services.upload_safety import extract_isolated, remove_owned_directory
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -160,3 +160,12 @@ def delete_resume_session(resume_id: int, db: Session = Depends(get_db), current
 @router.get("/my-resumes", response_model=List[ResumeResponse])
 def get_resumes(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(ResumeSession).filter(ResumeSession.user_id == current_user.id).order_by(ResumeSession.created_at.desc()).all()
+
+
+@router.get("/session/{resume_id}/text")
+def get_resume_text(resume_id: int, response: Response, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    record = db.query(ResumeSession).filter(ResumeSession.id == resume_id, ResumeSession.user_id == current_user.id).first()
+    if record is None:
+        raise HTTPException(404, "Resume not found")
+    response.headers["Cache-Control"] = "no-store"
+    return {"id": record.id, "file_name": record.file_name, "text": record.raw_text or ""}

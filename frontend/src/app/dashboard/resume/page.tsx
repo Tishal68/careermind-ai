@@ -29,7 +29,7 @@ export default function ResumePage() {
     <div className="max-w-6xl mx-auto px-6 py-10 space-y-8">
       <div>
         <h1 className="text-3xl font-extrabold text-white flex items-center gap-3"><FileCheck className="w-8 h-8 text-indigo-400" />My resumes</h1>
-        <p className="text-slate-400 text-sm mt-1">Upload a PDF or DOCX to extract recognized skills. Return to Role match to compare them with a job role.</p>
+        <p className="text-slate-400 text-sm mt-1">Upload a PDF or DOCX and check the extracted text. Role match compares your resume evidence with job requirements.</p>
       </div>
       {error && <p role="alert" className="text-rose-300">{error}</p>}
       {saved.error && <p role="alert" className="text-rose-300">Could not refresh saved resumes. {saved.data ? 'Your last loaded resumes are still shown.' : 'Your saved resumes are unavailable right now.'} <button onClick={saved.reload} className="underline">Retry saved resumes</button></p>}
@@ -47,7 +47,7 @@ export default function ResumePage() {
           <Card glass className="sticky top-24"><h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-indigo-400" />Upload Resume</h2><Uploader onSuccess={(data) => { setSelectedId(data.id); saved.update(files => [data, ...(files || [])]); setError(''); }} /></Card>
         </div>
         <div className="lg:col-span-2">
-          {parsedResume ? <ParsedPreview data={parsedResume} /> : saved.loading || saved.error ? <Card glass><p>{saved.loading ? "Loading your resume preview…" : "Resume preview is unavailable until saved resumes load. You can retry or upload a new document."}</p></Card> : <Card glass className="text-center py-16 border-dashed"><FileCheck className="w-12 h-12 text-slate-600 mx-auto mb-3" /><p className="text-slate-300 font-medium">No Resume Parsed Yet</p><p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">Upload your PDF or DOCX file to preview recognized skills.</p></Card>}
+          {parsedResume ? <ParsedPreview key={parsedResume.id} data={parsedResume} /> : saved.loading || saved.error ? <Card glass><p>{saved.loading ? "Loading your resume preview…" : "Resume preview is unavailable until saved resumes load. You can retry or upload a new document."}</p></Card> : <Card glass className="text-center py-16 border-dashed"><FileCheck className="w-12 h-12 text-slate-600 mx-auto mb-3" /><p className="text-slate-300 font-medium">No Resume Parsed Yet</p><p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">Upload your PDF or DOCX file to preview recognized skills.</p></Card>}
         </div>
       </div>
     </div>

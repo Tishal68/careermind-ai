@@ -36,7 +36,7 @@ test('interview submits a non-listed profession',async ({page})=>{
   await page.goto('/dashboard/interview');
   await expect(page.getByLabel('Target job role')).toHaveValue('Registered Nurse');
   await page.getByLabel('Target job role').fill('Museum Conservator');
-  await page.getByRole('button',{name:'Start Live Interview Session'}).click();
+  await page.getByRole('button',{name:'Start interview'}).click();
   await expect(page.getByRole('main').getByRole('alert')).toContainText('Provider temporarily unavailable');
   expect(role).toBe('Museum Conservator');
 });

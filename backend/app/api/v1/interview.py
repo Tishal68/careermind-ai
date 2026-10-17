@@ -48,7 +48,8 @@ def eval_interview(req: EvaluateAnswerRequest, db: Session = Depends(get_db), cu
     history[-1] = {"question": req.question, "answer": req.user_answer, "evaluation": res}
     scores = [item["evaluation"]["score"] for item in history if item.get("evaluation")]
     session.overall_score = sum(scores) / len(scores)
-    if res.get("next_question") and len(history) < 20:
+    next_question = res.get("next_question") if len(history) < 20 else None
+    if next_question:
         history.append({"question": res["next_question"], "answer": None, "evaluation": None})
     session.history = history
     db.commit()
@@ -59,5 +60,5 @@ def eval_interview(req: EvaluateAnswerRequest, db: Session = Depends(get_db), cu
         strengths=res.get("strengths", []),
         mistakes=res.get("mistakes", []),
         suggested_answer=res.get("suggested_answer", ""),
-        next_question=res.get("next_question")
+        next_question=next_question
     )

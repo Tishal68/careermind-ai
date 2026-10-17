@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Card, Input } from '@/components/UIComponents';
 import { fetchApi } from '@/lib/api';
 import dynamic from 'next/dynamic';
+import ResumeTextPreview from '@/components/ResumeTextPreview';
 const ResearchResults = dynamic(() => import('@/components/ResearchResults'), { loading: () => <p role="status" className="p-6 text-slate-400">Loading your results…</p> });
 import {
   UploadCloud, FileText, CheckCircle2, AlertCircle, User, Mail, Phone, Code, GraduationCap, Briefcase, Award,
@@ -75,12 +76,17 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
 };
 
 export const ParsedPreview: React.FC<{ data: any }> = ({ data }) => {
-  if (!data?.parsed_data) return null;
-  const parsed = data.parsed_data;
+  const [showText, setShowText] = useState(false);
+  if (!data) return null;
+  const parsed = data.parsed_data || {};
   const contact = parsed.contact || {};
 
   return (
     <div className="space-y-6">
+      <Card glass className="space-y-4">
+        <button type="button" aria-expanded={showText} aria-controls={`resume-text-${data.id}`} onClick={() => setShowText(value => !value)} className="text-emerald-300 underline">{showText ? 'Hide extracted resume text' : 'View extracted resume text'}</button>
+        <div id={`resume-text-${data.id}`}>{showText && <ResumeTextPreview key={data.id} resumeId={data.id} />}</div>
+      </Card>
       <Card glass className="border-indigo-500/20">
         <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/5">
           <div><h2 className="text-xl font-bold text-white flex items-center gap-2"><User className="w-5 h-5 text-indigo-400" />{contact.name || 'Candidate Profile'}</h2><p className="text-xs text-slate-400 mt-1">Uploaded File: {data.file_name}</p></div>
@@ -175,20 +181,21 @@ export const ChatWindow: React.FC = () => {
 };
 
 export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
-  const [question, setQuestion] = useState(session.history?.[0]?.question || "Describe your technical background.");
+  const [question, setQuestion] = useState(session.history?.[session.history.length - 1]?.question || "");
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<any>(null);
   const [evaluationError, setEvaluationError] = useState('');
+  const [complete, setComplete] = useState(false);
 
   const handleSubmit = async () => {
-    if (!answer.trim() || isSubmitting) return;
+    if (!answer.trim() || isSubmitting || complete || feedback || !question) return;
     setIsSubmitting(true);
     setEvaluationError('');
     try {
       const data = await fetchApi<any>('/interview/evaluate', { method: 'POST', body: JSON.stringify({ session_id: session.id, question, user_answer: answer }) });
       setFeedback(data);
-      if (data.next_question) setQuestion(data.next_question);
+      if (!data.next_question) setComplete(true);
       setAnswer('');
     } catch (err: any) {
       setEvaluationError(err.message || 'Evaluation failed. Please retry.');
@@ -202,13 +209,19 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
       <Card glass className="space-y-6 border-purple-500/30">
         <div className="flex items-start gap-3"><BrainCircuit className="w-6 h-6 text-purple-400 shrink-0" /><p className="text-lg font-bold text-white">{question}</p></div>
         {evaluationError && <p role="alert" className="text-rose-300">{evaluationError}</p>}
-        <textarea aria-label="Interview answer" maxLength={10000} rows={5} placeholder="Type response..." value={answer} onChange={e => setAnswer(e.target.value)} className="w-full glass-input rounded-xl p-4 text-sm" />
-        <Button onClick={handleSubmit} isLoading={isSubmitting} disabled={!answer.trim()} className="w-full" rightIcon={<Send className="w-4 h-4" />}>Submit Answer & Evaluate</Button>
+        {!complete && !feedback && <textarea aria-label="Interview answer" disabled={isSubmitting} maxLength={10000} rows={5} placeholder="Type response..." value={answer} onChange={e => setAnswer(e.target.value)} className="w-full glass-input rounded-xl p-4 text-sm" />}
+        {!complete && !feedback && <Button onClick={handleSubmit} isLoading={isSubmitting} disabled={!answer.trim()} className="w-full" rightIcon={<Send className="w-4 h-4" />}>Submit Answer & Evaluate</Button>}
+        {complete && <p role="status" className="text-emerald-300">Interview complete. Review your feedback below.</p>}
       </Card>
       {feedback && (
         <Card glass className="space-y-4 border-indigo-500/30">
-          <h3 className="text-lg font-bold text-white">Score: <span className="text-indigo-400">{feedback.score}%</span></h3>
-          <p className="text-xs text-slate-300">Model Answer: {feedback.suggested_answer}</p>
+          <h3 className="text-lg font-bold text-white">Practice feedback: <span className="text-indigo-400">{feedback.score}%</span></h3>
+          <p className="text-xs text-slate-400">AI practice feedback is guidance, not a hiring assessment.</p>
+          <p className="text-sm text-slate-300"><strong>Your answer:</strong> {feedback.user_answer}</p>
+          {!!feedback.strengths?.length && <div><h4 className="font-semibold text-emerald-300">Strengths</h4><ul className="list-disc pl-5 text-sm">{feedback.strengths.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul></div>}
+          {!!feedback.mistakes?.length && <div><h4 className="font-semibold text-amber-300">Ways to improve</h4><ul className="list-disc pl-5 text-sm">{feedback.mistakes.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul></div>}
+          <p className="text-sm text-slate-300"><strong>Suggested answer:</strong> {feedback.suggested_answer}</p>
+          {!complete && feedback.next_question && <Button onClick={() => { setQuestion(feedback.next_question); setFeedback(null); }}>Next question</Button>}
         </Card>
       )}
     </div>

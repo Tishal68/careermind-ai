@@ -45,12 +45,10 @@ class CareerGraphEngine:
         }
 
     def get_role_profile(self, job_role: str) -> Dict[str, Any]:
-        return self.roles.get(job_role.lower(), {
-            "required_skills": ["Python", "Git", "SQL", "Docker", "REST API"],
-            "salary_range": "$115,000 - $155,000",
-            "career_growth_velocity": "Moderate",
-            "target_level": "Mid-Level"
-        })
+        role = self.roles.get(job_role.strip().lower())
+        if role is None:
+            raise ValueError("No curated profile for this role. Use evidence-based job research.")
+        return role
 
 
 career_graph = CareerGraphEngine()

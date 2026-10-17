@@ -22,6 +22,7 @@ interface AuthContextType {
   retrySession: () => void;
   login: (token: string, user: User) => void;
   logout: () => void;
+  updateTargetRole: (userId: number, role: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,6 +70,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
+  const updateTargetRole = (userId: number, role: string) => {
+    setUser(current => current?.id === userId ? {...current, target_job_role: role} : current);
+  };
+
   const logout = async () => {
     // Start revocation with the current token, then clear this device immediately.
     const revocation = fetchApi('/auth/logout', { method: 'POST' }).catch(() => undefined);
@@ -82,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, sessionError, retrySession, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, sessionError, retrySession, login, logout, updateTargetRole }}>
       {children}
     </AuthContext.Provider>
   );

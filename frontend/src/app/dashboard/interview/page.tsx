@@ -2,24 +2,28 @@
 
 import React, { useState } from 'react';
 import { Card, Button } from '@/components/UIComponents';
-import { InterviewArena, JOB_ROLES } from '@/components/FeatureComponents';
+import { InterviewArena } from '@/components/FeatureComponents';
+import JobRoleInput from '@/components/JobRoleInput';
+import { useAuth } from '@/context/AuthContext';
 import { fetchApi } from '@/lib/api';
 import { BrainCircuit, Sparkles, Zap } from 'lucide-react';
 
 export default function InterviewPage() {
+  const { user } = useAuth();
   const [session, setSession] = useState<any>(null);
-  const [interviewType, setInterviewType] = useState('Technical');
-  const [targetRole, setTargetRole] = useState(JOB_ROLES[0]);
+  const [interviewType, setInterviewType] = useState('Mixed');
+  const [targetRole, setTargetRole] = useState(user?.target_job_role || '');
   const [error, setError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
 
   const handleStartSession = async () => {
+    if (targetRole.trim().length < 2) { setError('Enter a job title of 2 to 100 characters.'); return; }
     setIsStarting(true);
     setError('');
     try {
       const data = await fetchApi<any>('/interview/start', {
         method: 'POST',
-        body: JSON.stringify({ interview_type: interviewType, target_role: targetRole }),
+        body: JSON.stringify({ interview_type: interviewType, target_role: targetRole.trim() }),
       });
       setSession(data);
     } catch (err: any) {
@@ -42,9 +46,8 @@ export default function InterviewPage() {
                 <button key={type} type="button" onClick={() => setInterviewType(type)} className={`p-3 rounded-xl text-xs font-bold border ${interviewType === type ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>{type}</button>
               ))}
             </div>
-            <select value={targetRole} onChange={e => setTargetRole(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">
-              {JOB_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <label htmlFor="interview-role" className="block text-sm text-slate-300">Target job role</label>
+            <JobRoleInput id="interview-role" value={targetRole} onChange={setTargetRole} />
             <Button onClick={handleStartSession} isLoading={isStarting} className="w-full" rightIcon={<Sparkles className="w-4 h-4" />}>Start Live Interview Session</Button>
           </div>
         </Card>

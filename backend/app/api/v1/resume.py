@@ -18,6 +18,7 @@ from app.services.research_worker import expired
 from app.schemas import ResumeResponse, CareerReportResponse
 from app.services.parser_service import ResumeParserService
 from app.intelligence.command_center import command_center
+from app.intelligence.career_graph import career_graph
 
 router = APIRouter(prefix="/resume", tags=["Resume"])
 UPLOAD_DIR = settings.UPLOAD_DIR
@@ -58,6 +59,9 @@ def run_auto_pipeline(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    job_role = (target_role or current_user.target_job_role or "AI Engineer").strip()
+    if job_role.lower() not in career_graph.roles:
+        raise HTTPException(422, "This legacy pipeline has no verified profile for this profession. Upload through /api/v1/resume/upload and use /api/v1/analysis/research with the actual job description or market sources.")
     if db.query(ResumeSession).filter(ResumeSession.user_id == current_user.id).count() >= 20:
         raise HTTPException(409, "You have reached the 20-resume limit. Delete an old resume before uploading another.")
     filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, current_user.id)
@@ -78,7 +82,6 @@ def run_auto_pipeline(
     db.commit()
     db.refresh(session_record)
 
-    job_role = target_role or current_user.target_job_role or "AI Engineer"
     current_user.target_job_role = job_role
 
     # Route through AI Command Center Orchestrator

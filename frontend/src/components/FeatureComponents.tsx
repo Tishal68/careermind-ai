@@ -11,8 +11,6 @@ import {
   FolderGit2, ArrowUpRight, Bot, Send, Trash2, BrainCircuit
 } from 'lucide-react';
 
-export const FIELDS = ["Artificial Intelligence", "Machine Learning", "Data Science", "Data Analytics", "Cyber Security", "Software Development", "Cloud Computing", "DevOps"];
-export const JOB_ROLES = ["AI Engineer", "Machine Learning Engineer", "Data Scientist", "Data Analyst", "Generative AI Engineer", "Computer Vision Engineer", "NLP Engineer", "Backend Developer", "Cloud Engineer"];
 export const EXPERIENCE_LEVELS = ["Student", "Fresher", "Junior", "Mid-Level", "Senior"];
 
 export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSuccess }) => {
@@ -92,36 +90,18 @@ export const ParsedPreview: React.FC<{ data: any }> = ({ data }) => {
           </div>
         </div>
         <div className="pt-4 space-y-3">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Code className="w-4 h-4 text-purple-400" />Extracted Skills ({parsed.technical_skills?.length || 0})</h3>
+          <p className="text-xs text-slate-400">This quick preview recognizes a limited technical vocabulary. It is not a complete skills assessment. Role research uses the extracted resume text, including non-technical experience.</p>
+          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5"><Code className="w-4 h-4 text-purple-400" />Recognized technical keywords ({parsed.technical_skills?.length || 0})</h3>
           <div className="flex flex-wrap gap-2">{parsed.technical_skills?.map((s: string, i: number) => <span key={i} className="px-3 py-1 rounded-lg text-xs font-medium bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">{s}</span>)}</div>
         </div>
       </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card glass><h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><Briefcase className="w-4 h-4 text-pink-400" />Experience</h3>{parsed.experience?.map((e: any, i: number) => <div key={i} className="p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 mb-2"><p className="text-sm font-semibold text-white">{e.title}</p><p className="text-xs text-indigo-400">{e.company} • {e.duration}</p></div>)}</Card>
-        <Card glass><h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><GraduationCap className="w-4 h-4 text-cyan-400" />Education</h3>{parsed.education?.map((ed: any, i: number) => <div key={i} className="p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 mb-2"><p className="text-sm font-semibold text-white">{ed.degree}</p><p className="text-xs text-slate-400">{ed.institution}</p></div>)}</Card>
+        <Card glass><h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><Briefcase className="w-4 h-4 text-pink-400" />Experience</h3>{!parsed.experience?.length && <p className="text-xs text-slate-400">Not structured in this preview. This does not mean your resume has no experience.</p>}{parsed.experience?.map((e: any, i: number) => <div key={i} className="p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 mb-2"><p className="text-sm font-semibold text-white">{e.title}</p><p className="text-xs text-indigo-400">{e.company} • {e.duration}</p></div>)}</Card>
+        <Card glass><h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><GraduationCap className="w-4 h-4 text-cyan-400" />Education</h3>{!parsed.education?.length && <p className="text-xs text-slate-400">Not structured in this preview. Research checks the extracted resume text.</p>}{parsed.education?.map((ed: any, i: number) => <div key={i} className="p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 mb-2"><p className="text-sm font-semibold text-white">{ed.degree}</p><p className="text-xs text-slate-400">{ed.institution}</p></div>)}</Card>
       </div>
     </div>
   );
 };
-
-export const RoleSelector: React.FC<any> = ({ resumes, selectedResumeId, setSelectedResumeId, selectedField, setSelectedField, selectedRole, setSelectedRole, selectedLevel, setSelectedLevel, onAnalyze, isAnalyzing }) => (
-  <Card glass className="space-y-6">
-    <h2 className="text-lg font-bold text-white flex items-center gap-2"><Target className="w-5 h-5 text-indigo-400" />Analysis Options</h2>
-    <div className="space-y-4">
-      <div>
-        <label className="block text-xs font-semibold text-slate-300 mb-1">Select Resume</label>
-        <select value={selectedResumeId} onChange={(e) => setSelectedResumeId(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">
-          <option value="" disabled>Select resume...</option>
-          {resumes.map((r: any) => <option key={r.id} value={r.id}>{r.file_name}</option>)}
-        </select>
-      </div>
-      <div><label className="block text-xs font-semibold text-slate-300 mb-1">Target Field</label><select value={selectedField} onChange={(e) => setSelectedField(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">{FIELDS.map(f => <option key={f} value={f}>{f}</option>)}</select></div>
-      <div><label className="block text-xs font-semibold text-slate-300 mb-1">Job Role</label><select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">{JOB_ROLES.map(r => <option key={r} value={r}>{r}</option>)}</select></div>
-      <div><label className="block text-xs font-semibold text-slate-300 mb-1">Experience Level</label><select value={selectedLevel} onChange={(e) => setSelectedLevel(e.target.value)} className="w-full glass-input rounded-xl px-4 py-2.5 text-sm bg-slate-900 text-white">{EXPERIENCE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}</select></div>
-      <Button onClick={onAnalyze} isLoading={isAnalyzing} disabled={!selectedResumeId} className="w-full mt-4" leftIcon={<Sparkles className="w-4 h-4" />}>Check Role Match</Button>
-    </div>
-  </Card>
-);
 
 export const GapBreakdown: React.FC<{ report: any }> = ({ report }) => {
   if (!report) return null;

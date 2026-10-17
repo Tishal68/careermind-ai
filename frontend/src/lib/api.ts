@@ -43,6 +43,10 @@ export async function fetchApi<T>(
       localStorage.removeItem('careermind_research_job');
       window.location.assign('/login');
     }
+    if (response.ok && token && typeof window !== 'undefined'
+        && localStorage.getItem('careermind_token') !== token) {
+      throw new ApiError('Your session changed. Please retry in your current account.', 409);
+    }
     if (response.status === 204) return undefined as T;
     const contentType = response.headers.get('content-type');
     const isJson = contentType && contentType.includes('application/json');

@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
+import { useAccountResource } from '@/hooks/useAccountResource';
 import { Card } from '@/components/UIComponents';
 import { Uploader, GapBreakdown, JOB_ROLES } from '@/components/FeatureComponents';
 import { fetchApi } from '@/lib/api';
 import { Target, FileText, ArrowRight } from 'lucide-react';
 
 export default function GapAnalysisPage() {
-  const [resumes, setResumes] = useState<any[]>([]);
+  const saved = useAccountResource<any[]>('/resume/my-resumes');
+  const recent = useAccountResource<any[]>('/analysis/reports?limit=1');
+  const resumes = saved.data || [];
+  const restored = useRef(false);
+  const edited = useRef(false);
   const [resumeId, setResumeId] = useState('');
   const [role, setRole] = useState(JOB_ROLES[0]);
   const [report, setReport] = useState<any>(null);
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const loading = saved.loading && saved.data === null;
   const [error, setError] = useState('');
   const [location, setLocation] = useState('');
   const [level, setLevel] = useState('Junior');
@@ -26,27 +31,30 @@ export default function GapAnalysisPage() {
   const submission = useRef<{body: string; key: string} | null>(null);
 
   useEffect(() => {
-    Promise.allSettled([fetchApi<any[]>('/resume/my-resumes'), fetchApi<any[]>('/analysis/reports?limit=1')])
-      .then(([fileResult, reportResult]) => {
-        const files = fileResult.status === 'fulfilled' ? fileResult.value : [];
-        const reports = reportResult.status === 'fulfilled' ? reportResult.value : [];
-        if (fileResult.status === 'rejected') setError('Could not load saved resumes. Reload the page or upload your resume again.');
-        setResumes(files);
-        const latest = reports[0];
-        if (latest && files.some(f => f.id === latest.resume_id)) {
-          setResumeId(String(latest.resume_id)); setRole(latest.job_role); setReport(latest);
-          const preferences = latest.analysis_data?.research?.preferences;
-          if (preferences) {
-            setLocation(preferences.location); setLevel(preferences.experience_level);
-            setRemote(preferences.remote); setCompany(preferences.company || '');
-            setJobUrl(preferences.job_url || ''); setSearchMarket(preferences.search_market);
-          }
-        } else if (files.length) setResumeId(String(files[0].id));
-        const pending = Number(localStorage.getItem('careermind_research_job'));
-        if (pending) { setJobId(pending); setBusy(true); }
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+    if (!saved.data) return;
+    setResumeId(previous => saved.data!.some(file => String(file.id) === previous) ? previous
+      : String(saved.data!.find(file => file.id === recent.data?.[0]?.resume_id)?.id || saved.data![0]?.id || ''));
+  }, [saved.data, recent.data]);
+
+  useEffect(() => {
+    if (!recent.data || restored.current) return;
+    restored.current = true;
+    const latest = recent.data[0];
+    if (latest && !edited.current) {
+      setReport(latest); setRole(latest.job_role);
+      if (latest.resume_id) setResumeId(String(latest.resume_id));
+      const preferences = latest.analysis_data?.research?.preferences;
+      if (preferences) {
+        setLocation(preferences.location); setLevel(preferences.experience_level);
+        setRemote(preferences.remote); setCompany(preferences.company || '');
+        setJobUrl(preferences.job_url || ''); setSearchMarket(preferences.search_market);
+      }
+    }
+  }, [recent.data]);
+
+  useEffect(() => {
+    const pending = Number(localStorage.getItem('careermind_research_job'));
+    if (pending) { restored.current = true; setJobId(pending); setBusy(true); }
   }, []);
 
   useEffect(() => {
@@ -91,6 +99,7 @@ export default function GapAnalysisPage() {
       : description.trim() && description.trim().length < 80 ? 'Paste the full job description (at least 80 characters).'
       : !searchMarket && !jobUrl.trim() && !description.trim() ? 'Add a job URL or description, or enable market research.' : '';
     if (validation) { setError(validation); return; }
+    restored.current = true;
     setBusy(true); setError(''); setProgress('Starting research…');
     try {
       const body = JSON.stringify({ resume_id: Number(resumeId), job_role: role.trim(), location: location.trim() || 'Worldwide', experience_level: level,
@@ -111,8 +120,10 @@ export default function GapAnalysisPage() {
       <p className="text-slate-400 max-w-2xl">Research any job role. Compare your resume with openings, discover common requirements, and build a plan for the company you want to join.</p>
     </header>
     {error && <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-300">{error}</p>}
+    {saved.error && <p role="alert" className="rounded-xl border border-rose-500/30 p-4 text-rose-300">Saved resumes could not be loaded. {saved.data ? 'Your last loaded resumes are still shown.' : 'Retry to access them; you do not need to upload them again.'} <button onClick={saved.reload} className="underline">Retry saved resumes</button></p>}
+    {recent.error && <p role="alert" className="rounded-xl border border-rose-500/30 p-4 text-rose-300">Your saved report could not be loaded. You can still use a resume to research a role. <button onClick={recent.reload} className="underline">Retry saved report</button></p>}
     <div className="grid lg:grid-cols-[380px_1fr] gap-8 items-start">
-      <fieldset disabled={busy || loading} className="space-y-5 min-w-0">
+      <fieldset onChange={() => { edited.current = true; }} disabled={busy || loading} className="space-y-5 min-w-0">
         <Card glass className="space-y-4">
           <label htmlFor="target-role" className="flex items-center gap-2 font-bold text-white"><Target className="w-5 h-5 text-emerald-400" />1. Choose your target role</label>
           <input id="target-role" list="role-suggestions" maxLength={100} value={role} onChange={e => { setRole(e.target.value); setReport(null); }} placeholder="e.g. Product Designer, Accountant" className="w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white" />
@@ -124,7 +135,7 @@ export default function GapAnalysisPage() {
         <Card glass className="space-y-4">
           <h2 className="flex items-center gap-2 font-bold text-white"><FileText className="w-5 h-5 text-emerald-400" />2. Add your resume</h2>
           <p className="text-xs text-slate-400">PDF or DOCX, up to 5 MB. Use a document with selectable text.</p>
-          <Uploader onSuccess={file => { setResumes(prev => [file, ...prev]); setResumeId(String(file.id)); setReport(null); setError(''); }} />
+          <Uploader onSuccess={file => { edited.current = true; saved.update(prev => [file, ...(prev || [])]); setResumeId(String(file.id)); setReport(null); setError(''); }} />
           {resumes.length > 0 && <div>
             <label htmlFor="resume-select" className="block text-xs text-slate-400 mb-2">Or use a saved resume</label>
             <select id="resume-select" value={resumeId} disabled={busy} onChange={e => { setResumeId(e.target.value); setReport(null); }} className="w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white text-sm">
@@ -154,7 +165,7 @@ export default function GapAnalysisPage() {
         {busy && <Card glass className="mb-5"><p role="status" className="text-emerald-300">{progress || 'Resuming research…'}</p><p className="text-xs text-slate-400 mt-2">You can reload this page; it will check the saved task.</p></Card>}
         {report ? <GapBreakdown report={report} /> : <Card glass className="text-center py-20 space-y-4 border-dashed">
           <Target className="w-12 h-12 text-emerald-400 mx-auto" />
-          <h2 className="text-xl font-semibold text-white">{loading ? 'Loading your workspace…' : 'A clear path to your next role'}</h2>
+          <h2 className="text-xl font-semibold text-white">{loading || recent.loading ? 'Loading your workspace…' : recent.error ? 'Saved report temporarily unavailable' : 'A clear path to your next role'}</h2>
           <p className="text-sm text-slate-400 max-w-sm mx-auto">Your skills match, gaps, and learning steps will appear here after you analyze your resume.</p>
         </Card>}
       </section>

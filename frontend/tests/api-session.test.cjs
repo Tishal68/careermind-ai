@@ -31,3 +31,22 @@ for (const nextToken of [null, 'new-session', 'old-session']) {
     assert.equal(storage.has('careermind_research_job'), nextToken !== 'old-session');
   });
 }
+
+for (const nextToken of [null, 'new-session', 'old-session']) {
+  test(`delayed successful response cannot cross sessions: ${nextToken}`, async () => {
+    let token = 'old-session';
+    let finish;
+    const context = {
+      exports: {}, process: {env: {}}, FormData, AbortSignal,
+      localStorage: {getItem: () => token, removeItem: () => { token = null; }},
+      window: {location: {assign: () => assert.fail('Success must not redirect')}},
+      fetch: () => new Promise(resolve => { finish = resolve; }),
+    };
+    vm.runInNewContext(source, context);
+    const request = context.exports.fetchApi('/analysis/research', {method: 'POST'});
+    token = nextToken;
+    finish(new Response(JSON.stringify({id: 7}), {status: 202, headers: {'Content-Type':'application/json'}}));
+    if (nextToken === 'old-session') assert.equal((await request).id, 7);
+    else await assert.rejects(request, error => error.status === 409);
+  });
+}

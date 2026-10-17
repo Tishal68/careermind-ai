@@ -34,6 +34,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
       </div>
     </header>
-    <main id="main-content">{children}</main>
+    <main key={user.id} id="main-content">{children}</main>
   </div>;
 }

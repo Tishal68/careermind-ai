@@ -124,7 +124,9 @@ def test_interview_ownership_persistence_and_replay(secured,monkeypatch):
     db.expire_all()
     saved=db.get(InterviewSession,session['id'])
     assert saved.overall_score==40 and saved.history[0]['answer']=='An iterator.'
-    assert client.post('/api/v1/interview/evaluate',headers=headers,json=body).status_code==409
+    assert client.post('/api/v1/interview/evaluate',headers=headers,json=body).status_code==200
+    assert ai_router_engine.generate_json.call_count == 1
+    assert client.post('/api/v1/interview/evaluate',headers=headers,json={**body,'user_answer':'Different answer'}).status_code==409
 
 
 @pytest.mark.parametrize('feedback',[{}, {'score':999}, {'score':float('nan')}])

@@ -181,20 +181,32 @@ export const ChatWindow: React.FC = () => {
 };
 
 export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
-  const [question, setQuestion] = useState(session.history?.[session.history.length - 1]?.question || "");
+  const [history, setHistory] = useState<any[]>(session.history || []);
+  const activeIndex = history.length - 1;
+  const lastAnswered = history.reduce((last: number, item: any, i: number) => item.answer != null ? i : last, -1);
+  const restored = lastAnswered >= 0 ? history[lastAnswered] : null;
+  const [questionIndex, setQuestionIndex] = useState(restored ? lastAnswered : activeIndex);
+  const [question, setQuestion] = useState(restored?.question || history[activeIndex]?.question || '');
   const [answer, setAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<any>(null);
+  const [feedback, setFeedback] = useState<any>(restored ? {...restored.evaluation, user_answer: restored.answer,
+    next_question: history[activeIndex]?.answer == null ? history[activeIndex]?.question : null} : null);
   const [evaluationError, setEvaluationError] = useState('');
-  const [complete, setComplete] = useState(false);
+  const [complete, setComplete] = useState(history.length > 0 && history[activeIndex].answer != null);
 
   const handleSubmit = async () => {
     if (!answer.trim() || isSubmitting || complete || feedback || !question) return;
     setIsSubmitting(true);
     setEvaluationError('');
     try {
-      const data = await fetchApi<any>('/interview/evaluate', { method: 'POST', body: JSON.stringify({ session_id: session.id, question, user_answer: answer }) });
+      const data = await fetchApi<any>('/interview/evaluate', { method: 'POST', body: JSON.stringify({ session_id: session.id, question_index: questionIndex, question, user_answer: answer }) });
       setFeedback(data);
+      setHistory(previous => {
+        const next = previous.slice(0, questionIndex);
+        next.push({question, answer, evaluation:data});
+        if(data.next_question) next.push({question:data.next_question,answer:null,evaluation:null});
+        return next;
+      });
       if (!data.next_question) setComplete(true);
       setAnswer('');
     } catch (err: any) {
@@ -206,6 +218,7 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
 
   return (
     <div className="space-y-6">
+      {lastAnswered >= 0 && <details className="rounded-xl border border-white/10 p-4"><summary className="cursor-pointer text-emerald-300">Saved answers and feedback</summary>{history.filter((item: any) => item.answer != null).map((item: any, i: number) => <article key={i} className="mt-4 space-y-2 text-sm"><h3 className="font-semibold">{item.question}</h3><p className="whitespace-pre-wrap">{item.answer}</p><p>Practice feedback: {item.evaluation?.score ?? 'Unavailable'}</p><p className="whitespace-pre-wrap">{item.evaluation?.suggested_answer}</p></article>)}</details>}
       <Card glass className="space-y-6 border-purple-500/30">
         <div className="flex items-start gap-3"><BrainCircuit className="w-6 h-6 text-purple-400 shrink-0" /><p className="text-lg font-bold text-white">{question}</p></div>
         {evaluationError && <p role="alert" className="text-rose-300">{evaluationError}</p>}
@@ -220,8 +233,8 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
           <p className="text-sm text-slate-300"><strong>Your answer:</strong> {feedback.user_answer}</p>
           {!!feedback.strengths?.length && <div><h4 className="font-semibold text-emerald-300">Strengths</h4><ul className="list-disc pl-5 text-sm">{feedback.strengths.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul></div>}
           {!!feedback.mistakes?.length && <div><h4 className="font-semibold text-amber-300">Ways to improve</h4><ul className="list-disc pl-5 text-sm">{feedback.mistakes.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul></div>}
-          <p className="text-sm text-slate-300"><strong>Suggested answer:</strong> {feedback.suggested_answer}</p>
-          {!complete && feedback.next_question && <Button onClick={() => { setQuestion(feedback.next_question); setFeedback(null); }}>Next question</Button>}
+          <p className="text-sm text-slate-300"><strong>Answer-building template:</strong> {feedback.suggested_answer}</p>
+          {!complete && feedback.next_question && <Button onClick={() => { setQuestion(feedback.next_question); setQuestionIndex(value => value+1); setFeedback(null); }}>Next question</Button>}
         </Card>
       )}
     </div>

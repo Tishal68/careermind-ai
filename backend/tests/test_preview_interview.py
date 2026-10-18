@@ -36,4 +36,4 @@ def test_last_interview_answer_has_no_phantom_next_question(secured,monkeypatch)
     db.refresh(record)
     assert len(record.history)==20
     assert record.history[-1]['answer']=='My answer'
-    assert client.post('/api/v1/interview/evaluate',headers=headers,json=payload).status_code==409
+    assert client.post('/api/v1/interview/evaluate',headers=headers,json=payload).json() == response.json()

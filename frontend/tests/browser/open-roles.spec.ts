@@ -1,6 +1,7 @@
 import {test, expect} from '@playwright/test';
 
 test.beforeEach(async ({page}) => {
+  await page.route('**/api/v1/interview/sessions',route=>route.fulfill({json:[]}));
   await page.addInitScript(() => localStorage.setItem('careermind_token','role-test'));
   await page.route('**/api/v1/auth/me', route => route.fulfill({json:{id:1,email:'roles@example.com',target_job_role:'Registered Nurse'}}));
 });

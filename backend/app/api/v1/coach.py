@@ -5,15 +5,23 @@ from app.core.database import get_db
 from app.deps import get_current_user
 from app.models.user import User
 from app.models.chat import ChatMessage
+from app.models.report import CareerReport
 from app.schemas import ChatMessageRequest, ChatMessageResponse, ChatHistoryResponse
 from app.services.coach_service import CoachService
 
 router = APIRouter(prefix="/chat", tags=["Career coach"])
 
 
+def selected_report(db, user_id, report_id):
+    if report_id is None: return CoachService.latest_report(db, user_id)
+    report = db.query(CareerReport).filter(CareerReport.id == report_id, CareerReport.user_id == user_id).first()
+    if report is None: raise HTTPException(404, "Report not found")
+    return report
+
+
 @router.get("/context")
-def chat_context(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    report = CoachService.latest_report(db, current_user.id)
+def chat_context(report_id: int | None = Query(None, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    report = selected_report(db, current_user.id, report_id)
     return CoachService.report_context(db, report) if report else None
 
 
@@ -22,7 +30,7 @@ def send_chat(req: ChatMessageRequest, db: Session = Depends(get_db), current_us
     query = req.content.strip()
     if not query:
         raise HTTPException(status_code=422, detail="Enter a career question.")
-    report = CoachService.latest_report(db, current_user.id)
+    report = selected_report(db, current_user.id, req.report_id)
     if report is None:
         raise HTTPException(status_code=400, detail="Analyze a resume and job role before starting your coaching session.")
     session = CoachService.get_or_create_daily_session(db, current_user.id, report)
@@ -36,8 +44,8 @@ def send_chat(req: ChatMessageRequest, db: Session = Depends(get_db), current_us
 
 
 @router.get("/history", response_model=ChatHistoryResponse)
-def chat_history(limit: int = Query(40, ge=1, le=100), before: int | None = Query(None, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    report = CoachService.latest_report(db, current_user.id)
+def chat_history(report_id: int | None = Query(None, gt=0), limit: int = Query(40, ge=1, le=100), before: int | None = Query(None, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    report = selected_report(db, current_user.id, report_id)
     if report is None:
         return ChatHistoryResponse(messages=[])
     session = CoachService.get_or_create_daily_session(db, current_user.id, report)
@@ -48,8 +56,8 @@ def chat_history(limit: int = Query(40, ge=1, le=100), before: int | None = Quer
 
 
 @router.delete("/clear", status_code=204)
-def clear_chat(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    report = CoachService.latest_report(db, current_user.id)
+def clear_chat(report_id: int | None = Query(None, gt=0), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    report = selected_report(db, current_user.id, report_id)
     if report:
         session = CoachService.get_or_create_daily_session(db, current_user.id, report)
         db.query(ChatMessage).filter(ChatMessage.chat_session_id == session.id).delete()

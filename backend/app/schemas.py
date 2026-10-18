@@ -188,6 +188,7 @@ class ProjectRecommendation(BaseModel):
 
 # Chat Assistant
 class ChatMessageRequest(BaseModel):
+    report_id: Optional[int] = Field(default=None, gt=0)
     content: str = Field(..., min_length=1, max_length=2000, json_schema_extra={"example": "How can I prepare for a Senior AI Engineer interview?"})
 
 
@@ -232,6 +233,7 @@ class InterviewSessionResponse(BaseModel):
 
 
 class EvaluateAnswerRequest(BaseModel):
+    question_index: Optional[int] = Field(default=None, ge=0, le=19)
     session_id: int = Field(gt=0)
     question: str = Field(min_length=1, max_length=4000)
     user_answer: str = Field(min_length=1, max_length=10000)

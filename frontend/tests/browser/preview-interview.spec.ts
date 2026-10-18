@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 
 test.beforeEach(async ({page})=>{
+  await page.route('**/api/v1/interview/sessions',route=>route.fulfill({json:[]}));
   await page.addInitScript(()=>localStorage.setItem('careermind_token','preview-test'));
   await page.route('**/api/v1/auth/me',route=>route.fulfill({json:{id:1,email:'preview@example.com',target_job_role:'Teacher'}}));
 });
@@ -39,7 +40,7 @@ test('interview keeps answers on failure, separates feedback and completes witho
   await expect(page.getByText('Clear objectives',{exact:true})).toBeVisible();
   await expect(page.getByText('Add assessment',{exact:true})).toBeVisible();
   await expect(page.getByLabel('Interview answer')).toHaveCount(0);
-  await expect(page.getByText('Explain a lesson plan.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Explain a lesson plan.',{exact:true}).filter({visible:true})).toBeVisible();
   await page.getByRole('button',{name:'Next question',exact:true}).click();
   await expect(page.getByText('How do you assess learning?',{exact:true})).toBeVisible();
   await page.getByLabel('Interview answer').fill('Use formative checks');

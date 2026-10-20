@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.core.database import engine
+from app.core.migrations import schema_current
 from app.schemas import HealthCheck
 from app.core.config import settings
 from app.api.v1.auth import router as auth_router
@@ -24,6 +25,8 @@ def readiness():
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT id FROM users LIMIT 0"))
+            if not schema_current(connection):
+                return JSONResponse({"status": "unavailable"}, status_code=503)
         return {"status": "ready"}
     except Exception:
         return JSONResponse({"status": "unavailable"}, status_code=503)

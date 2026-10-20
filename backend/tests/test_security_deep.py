@@ -164,10 +164,8 @@ def test_new_account_has_no_fabricated_progress(secured):
     assert data['learning_progress_percent'] is None
 
 
-def test_api_responses_are_not_cacheable():
-    from app.main import app
-    with TestClient(app) as client:
-        response=client.get('/api/v1/auth/me')
+def test_api_responses_are_not_cacheable(application_client):
+    response=application_client.get('/api/v1/auth/me')
     assert response.status_code==401
     assert response.headers['cache-control']=='no-store'
     assert response.headers['x-content-type-options']=='nosniff'

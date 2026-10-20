@@ -3,6 +3,34 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: careermind_test
+          POSTGRES_USER: careermind_test
+          POSTGRES_PASSWORD: disposable-ci-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U careermind_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_TEST_URL: postgresql+psycopg://careermind_test:disposable-ci-password@localhost:5432/careermind_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r backend/requirements-dev.txt
+      - run: >-
+          python -m pytest -q tests/test_storage_migrations.py
+          tests/test_interview_recovery.py
+          tests/test_reliability.py::test_concurrent_idempotent_admission
+          tests/test_reliability.py::test_worker_restart_recovery_and_single_report
+          tests/test_reliability.py::test_saturation_keeps_job_queued
+        working-directory: backend
   backend:
     runs-on: ubuntu-latest
     steps:
@@ -47,11 +75,21 @@ jobs:
       - run: pip install httpx python-docx
       - run: docker build -t careermind-smoke .
       - name: Start production image
-        run: docker run -d --name careermind-smoke -p 10000:10000 -e SECRET_KEY="$(openssl rand -hex 32)" careermind-smoke
+        run: docker run -d --name careermind-smoke -v careermind-test-data:/app/data -p 10000:10000 -e SECRET_KEY="$(openssl rand -hex 32)" careermind-smoke
       - run: python backend/scripts/container_smoke.py
+      - name: Seed persistence canary
+        run: docker exec careermind-smoke python /app/backend/scripts/storage_canary.py seed
+      - name: Restart with the same storage
+        run: docker restart careermind-smoke
+      - name: Verify readiness and normal requests after restart
+        run: python backend/scripts/container_smoke.py
+      - name: Verify saved records and upload hash
+        run: docker exec careermind-smoke python /app/backend/scripts/storage_canary.py verify
       - name: Container diagnostics
         if: failure()
         run: docker logs --tail 100 careermind-smoke
       - name: Stop test container
         if: always()
-        run: docker rm -f careermind-smoke || true
+        run: |
+          docker rm -f careermind-smoke || true
+          docker volume rm careermind-test-data || true

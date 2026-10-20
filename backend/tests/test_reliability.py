@@ -40,8 +40,17 @@ def test_loopback_accounts_do_not_share_small_budget():
 
 @pytest.fixture
 def queue_db(tmp_path, monkeypatch):
-    engine=create_engine('sqlite:///'+str(tmp_path/'queue.db'),connect_args={'check_same_thread':False,'timeout':5})
-    Base.metadata.create_all(engine); factory=sessionmaker(bind=engine)
+    import os
+    from sqlalchemy import text
+    from app.core.migrations import migrate
+    url=os.getenv('POSTGRES_TEST_URL')
+    engine=create_engine(url) if url else create_engine('sqlite:///'+str(tmp_path/'queue.db'),connect_args={'check_same_thread':False,'timeout':5})
+    if url:
+        assert engine.url.database == 'careermind_test', 'Refusing a non-test database'
+        with engine.begin() as connection:
+            connection.execute(text('DROP SCHEMA public CASCADE'))
+            connection.execute(text('CREATE SCHEMA public'))
+    migrate(engine); factory=sessionmaker(bind=engine)
     monkeypatch.setattr(worker,'SessionLocal',factory)
     with factory() as db:
         user=User(email='queue@example.com',hashed_password='test');db.add(user);db.flush()

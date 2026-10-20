@@ -1,12 +1,8 @@
 import time
-import pytest
-from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
 
 
-def test_register_and_login_flow():
+def test_register_and_login_flow(application_client):
+    client = application_client
     unique_email = f"testuser_{int(time.time())}@careermind.ai"
     test_user = {
         "email": unique_email,

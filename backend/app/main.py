@@ -6,7 +6,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.core.database import Base, engine, SessionLocal
+from app.core.database import engine, SessionLocal
+from app.core.migrations import migrate
 from app.core.security import verify_password
 from app.api import api_router
 from app.models import User
@@ -14,6 +15,8 @@ from app.core.request_limits import RequestLimitsMiddleware
 
 @asynccontextmanager
 async def lifespan(app):
+    migrate(engine)
+    retire_public_accounts()
     stop = start_dispatcher()
     yield
     stop.set()
@@ -36,18 +39,16 @@ app.add_middleware(
 
 app.add_middleware(RequestLimitsMiddleware)
 
-Base.metadata.create_all(bind=engine)
-
-
 # Retire previously seeded accounts only while they still use public credentials.
 # Accounts with an independently changed password are preserved.
-with SessionLocal() as db:
-    for email, password in [("demo@careermind.ai", "Password123!"), ("admin@careermind.ai", "AdminPass123!")]:
-        user = db.query(User).filter(User.email == email).first()
-        if user and (user.hashed_password == "standalone-mode" or verify_password(password, user.hashed_password)):
-            user.is_active = False
-            user.is_superuser = False
-    db.commit()
+def retire_public_accounts():
+    with SessionLocal() as db:
+        for email, password in [("demo@careermind.ai", "Password123!"), ("admin@careermind.ai", "AdminPass123!")]:
+            user = db.query(User).filter(User.email == email).first()
+            if user and (user.hashed_password == "standalone-mode" or verify_password(password, user.hashed_password)):
+                user.is_active = False
+                user.is_superuser = False
+        db.commit()
 
 @app.middleware("http")
 async def response_security(request: Request, call_next):

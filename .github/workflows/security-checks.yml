@@ -75,11 +75,21 @@ jobs:
       - run: pip install httpx python-docx
       - run: docker build -t careermind-smoke .
       - name: Start production image
-        run: docker run -d --name careermind-smoke -p 10000:10000 -e SECRET_KEY="$(openssl rand -hex 32)" careermind-smoke
+        run: docker run -d --name careermind-smoke -v careermind-test-data:/app/data -p 10000:10000 -e SECRET_KEY="$(openssl rand -hex 32)" careermind-smoke
       - run: python backend/scripts/container_smoke.py
+      - name: Seed persistence canary
+        run: docker exec careermind-smoke python /app/backend/scripts/storage_canary.py seed
+      - name: Restart with the same storage
+        run: docker restart careermind-smoke
+      - name: Verify readiness and normal requests after restart
+        run: python backend/scripts/container_smoke.py
+      - name: Verify saved records and upload hash
+        run: docker exec careermind-smoke python /app/backend/scripts/storage_canary.py verify
       - name: Container diagnostics
         if: failure()
         run: docker logs --tail 100 careermind-smoke
       - name: Stop test container
         if: always()
-        run: docker rm -f careermind-smoke || true
+        run: |
+          docker rm -f careermind-smoke || true
+          docker volume rm careermind-test-data || true

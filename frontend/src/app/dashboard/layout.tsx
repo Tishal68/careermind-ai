@@ -28,7 +28,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const activeTitle = items.find(item => item.href === pathname)?.title || 'Workspace';
   return <div className="workspace-shell min-h-screen text-slate-100 lg:pl-60">
     <a href="#main-content" className="skip-link">Skip to content</a>
-    <aside className="workspace-sidebar hidden lg:flex fixed inset-y-0 left-0 w-60 flex-col border-r border-white/10 p-5 z-30">
+    <aside className="workspace-sidebar hidden lg:flex fixed inset-y-0 left-0 w-60 flex-col overflow-y-auto border-r border-white/10 p-5 z-30">
       <Link href="/dashboard" className="flex items-center gap-3 py-3 font-semibold tracking-tight"><span className="brand-mark"><Compass size={22} /></span>CareerMind AI</Link>
       <p className="mt-10 mb-3 px-3 text-[10px] font-semibold tracking-[0.2em] text-slate-500 uppercase">Your workspace</p>
       <nav aria-label="Main navigation" className="space-y-1">

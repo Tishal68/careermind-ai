@@ -35,7 +35,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
     finally { submitting.current = false; setBusy(false); }
   }
 
-  return <main className="min-h-screen bg-[#0b121b] px-5 py-8 sm:px-10 flex flex-col">
+  return <main className="auth-surface min-h-screen px-5 py-8 sm:px-10 flex flex-col">
     <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold w-fit"><Compass className="text-emerald-400" />CareerMind AI</Link>
     <div className="w-full max-w-5xl mx-auto flex-1 grid lg:grid-cols-2 gap-10 lg:gap-20 items-center py-10">
       <section className="hidden lg:block space-y-8">

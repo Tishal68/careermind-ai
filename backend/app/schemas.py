@@ -18,6 +18,11 @@ class UserLogin(BaseModel):
     password: str = Field(min_length=1, max_length=1024)
 
 
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=1024, repr=False)
+    new_password: str = Field(min_length=12, max_length=1024, repr=False)
+
+
 class UserResponse(UserBase):
     id: int
     is_active: bool

@@ -23,7 +23,7 @@ def get_current_user(db: Session = Depends(get_db), token: Optional[str] = Depen
     if db.get(RevokedToken, hashlib.sha256(token.encode()).hexdigest()):
         raise unauthorized
     user = db.query(User).filter(User.id == user_id).first()
-    if not user or not user.is_active:
+    if not user or not user.is_active or type(payload.get("sv", 0)) is not int or payload.get("sv", 0) != user.session_version:
         raise unauthorized
     return user
 

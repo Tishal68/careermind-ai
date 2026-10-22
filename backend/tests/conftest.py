@@ -5,6 +5,8 @@ from app.core.request_limits import _expensive
 def isolate_rate_limit_state():
     # Each fixture's user IDs belong to a different isolated database.
     _expensive.entries.clear()
+    from app.api.v1.auth import _password_attempts
+    _password_attempts.entries.clear()
     yield
     _expensive.entries.clear()
 
@@ -30,6 +32,8 @@ def application_client(tmp_path, monkeypatch):
         with factory() as session:
             yield session
     main.app.dependency_overrides[get_db] = database
+    # Each isolated database represents a new app instance, including ingress budgets.
+    main.app.middleware_stack = None
     try:
         with TestClient(main.app) as client:
             yield client

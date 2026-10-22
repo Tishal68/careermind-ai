@@ -5,7 +5,8 @@ from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, inspect, text
 
-from app.core.migrations import migrate, schema_current
+from app.core.migrations import migrate, schema_current, migration_config
+from alembic import command
 from app.models import Base
 
 
@@ -26,7 +27,8 @@ def storage_engine(tmp_path):
 @pytest.mark.parametrize("legacy", [False, True])
 def test_fresh_and_legacy_migration_preserve_data(storage_engine, legacy):
     if legacy:
-        Base.metadata.create_all(storage_engine)
+        with storage_engine.begin() as connection:
+            command.upgrade(migration_config(connection), "0001_baseline")
     else:
         migrate(storage_engine)
     with storage_engine.begin() as connection:
@@ -38,6 +40,7 @@ def test_fresh_and_legacy_migration_preserve_data(storage_engine, legacy):
     with storage_engine.connect() as connection:
         assert schema_current(connection)
         assert connection.execute(text("SELECT email FROM users WHERE id = 123")).scalar() == "saved@example.com"
+        assert connection.execute(text("SELECT session_version FROM users WHERE id = 123")).scalar() == 0
         assert not compare_metadata(MigrationContext.configure(connection), Base.metadata)
 
 
@@ -66,7 +69,12 @@ def test_readiness_rejects_unversioned_schema(storage_engine, monkeypatch):
     import importlib
     router = importlib.import_module("app.api.router")
     monkeypatch.setattr(router, "engine", storage_engine)
-    Base.metadata.create_all(storage_engine)
     assert router.readiness().status_code == 503
     migrate(storage_engine)
     assert router.readiness() == {"status": "ready"}
+
+
+def test_unversioned_databases_require_baseline_adoption_release(storage_engine):
+    Base.metadata.create_all(storage_engine)
+    with pytest.raises(RuntimeError, match="baseline"):
+        migrate(storage_engine)

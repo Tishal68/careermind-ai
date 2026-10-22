@@ -60,12 +60,12 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={(e) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files[0]) validateAndSetFile(e.dataTransfer.files[0]); }}
-        className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all cursor-pointer ${isDragOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-slate-700/60 bg-slate-900/40'}`}
+        className={`border-2 border-dashed rounded-2xl p-5 text-center transition-colors cursor-pointer ${isDragOver ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700/60 bg-slate-900/40'}`}
       >
         <input type="file" accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && validateAndSetFile(e.target.files[0])} className="sr-only peer" disabled={isUploading} id="resume-file-input" />
         <label htmlFor="resume-file-input" className="cursor-pointer block peer-focus-visible:outline peer-focus-visible:outline-emerald-400">
-          <div className="p-4 rounded-full bg-indigo-600/10 border border-indigo-500/20 w-fit mx-auto text-indigo-400 mb-4"><UploadCloud className="w-6 h-6" /></div>
-          {file ? <p className="text-sm font-semibold text-white break-all flex items-center justify-center gap-2"><FileText className="w-4 h-4 text-indigo-400" />{file.name}</p> : <p className="text-sm font-medium text-slate-200">Click to upload or drag & drop resume file (PDF/DOCX)</p>}
+          <div className="p-4 rounded-full bg-emerald-600/10 border border-emerald-500/20 w-fit mx-auto text-emerald-400 mb-4"><UploadCloud className="w-6 h-6" /></div>
+          {file ? <p className="text-sm font-semibold text-white break-all flex items-center justify-center gap-2"><FileText className="w-4 h-4 text-emerald-400" />{file.name}</p> : <p className="text-sm font-medium text-slate-200">Click to upload or drag & drop resume file (PDF/DOCX)</p>}
         </label>
       </div>
       {success && <p role="status" className="text-sm text-emerald-300 break-words">{success}</p>}
@@ -233,7 +233,7 @@ export const InterviewArena: React.FC<{ session: any }> = ({ session }) => {
           <p className="text-sm text-slate-300"><strong>Your answer:</strong> {feedback.user_answer}</p>
           {!!feedback.strengths?.length && <div><h4 className="font-semibold text-emerald-300">Strengths</h4><ul className="list-disc pl-5 text-sm">{feedback.strengths.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul></div>}
           {!!feedback.mistakes?.length && <div><h4 className="font-semibold text-amber-300">Ways to improve</h4><ul className="list-disc pl-5 text-sm">{feedback.mistakes.map((item: string, i: number) => <li key={i}>{item}</li>)}</ul></div>}
-          <p className="text-sm text-slate-300"><strong>Answer-building template:</strong> {feedback.suggested_answer}</p>
+          <p className="text-sm text-slate-300 whitespace-pre-line leading-relaxed"><strong>Answer-building template:</strong> {feedback.suggested_answer}</p>
           {!complete && feedback.next_question && <Button onClick={() => { setQuestion(feedback.next_question); setQuestionIndex(value => value+1); setFeedback(null); }}>Next question</Button>}
         </Card>
       )}

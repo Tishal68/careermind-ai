@@ -1,12 +1,7 @@
-import React from 'react';
-
 export default function DashboardLoading() {
-  return (
-    <div className="min-h-[70vh] flex items-center justify-center p-6 bg-[#fbf9f5]">
-      <div className="text-center space-y-3">
-        <div className="w-10 h-10 border-3 border-[#0F5E4E] border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-xs font-semibold text-slate-500">Loading...</p>
-      </div>
-    </div>
-  );
+  return <div role="status" aria-label="Loading your workspace" className="max-w-6xl mx-auto w-full px-4 sm:px-8 py-10 space-y-8">
+    <span className="sr-only">Loading your workspace…</span>
+    <div aria-hidden="true" className="space-y-4"><div className="skeleton h-3 w-32" /><div className="skeleton h-10 w-3/4 max-w-lg" /><div className="skeleton h-4 w-2/3" /></div>
+    <div aria-hidden="true" className="grid xl:grid-cols-[380px_1fr] gap-6"><div className="skeleton h-96 rounded-2xl" /><div className="skeleton h-80 rounded-2xl" /></div>
+  </div>;
 }

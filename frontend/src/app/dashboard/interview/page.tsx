@@ -61,7 +61,7 @@ export default function InterviewPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               {['Technical', 'HR', 'Behavioral', 'Mixed'].map(type => (
-                <button key={type} type="button" onClick={() => setInterviewType(type)} className={`p-3 rounded-xl text-xs font-bold border ${interviewType === type ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>{type}</button>
+                <button key={type} type="button" aria-pressed={interviewType === type} onClick={() => setInterviewType(type)} className={`p-3 rounded-xl text-xs font-bold border ${interviewType === type ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-400'}`}>{type}</button>
               ))}
             </div>
             <label htmlFor="interview-role" className="block text-sm text-slate-300">Target job role</label>

@@ -1,9 +1,6 @@
 import re
 import logging
 from typing import Dict, Any, List
-import pdfplumber
-import docx
-from app.intelligence.skill_catalog import ALIASES
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +25,7 @@ class ResumeParserService:
     def extract_raw_text(file_path: str, file_type: str) -> str:
         try:
             if file_type.lower() == ".pdf":
+                import pdfplumber
                 with pdfplumber.open(file_path) as pdf:
                     if len(pdf.pages) > 30:
                         raise ValueError("Resume exceeds 30 pages.")
@@ -41,6 +39,7 @@ class ResumeParserService:
                         parts.append(part)
                     text = "\n".join(parts)
             elif file_type.lower() == ".docx":
+                import docx
                 document = docx.Document(file_path)
                 parts = []
                 seen_hdrftr_parts = set()
@@ -144,6 +143,7 @@ class ResumeParserService:
 
     @staticmethod
     def parse_resume_content(raw_text: str) -> Dict[str, Any]:
+        from app.intelligence.skill_catalog import ALIASES
         text = raw_text.casefold()
         found = []
         for keyword in TECHNICAL_SKILL_KEYWORDS:

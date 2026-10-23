@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/api-session.test.cjs",
+    "test": "node --test tests/api-session.test.cjs tests/api-timeouts.test.cjs",
     "test:ui": "playwright test"
   },
   "dependencies": {

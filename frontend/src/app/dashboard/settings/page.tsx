@@ -13,25 +13,40 @@ export default function SettingsPage() {
   const edited = useRef(false);
   const [targetRole, setTargetRole] = useState(user?.target_job_role || 'AI Engineer');
   const [preferredModel, setPreferredModel] = useState('Loading…');
+  const [loadError, setLoadError] = useState('');
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [error, setError] = useState('');
   const [provider, setProvider] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  useEffect(() => {
+  const loadSettings = () => {
+    setIsLoadingSettings(true);
+    setLoadError('');
     const controller = new AbortController();
-    fetchApi<any>('/user/settings', {signal: controller.signal})
+    fetchApi<any>('/user/settings', { signal: controller.signal })
       .then(data => {
         setProvider(data);
         if (!edited.current && data.target_job_role) setTargetRole(data.target_job_role);
         if (data.preferred_ai_model) setPreferredModel(data.preferred_ai_model);
       })
-      .catch(err => { if (!controller.signal.aborted) setError(err.message); });
+      .catch(err => {
+        if (!controller.signal.aborted) setLoadError(err.message || 'Could not load platform settings.');
+      })
+      .finally(() => {
+        setIsLoadingSettings(false);
+      });
     return () => controller.abort();
+  };
+
+  useEffect(() => {
+    const cancel = loadSettings();
+    return cancel;
   }, []);
 
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isSaving) return;
     if (targetRole.trim().length < 2) { setError('Enter a job title of 2 to 100 characters.'); return; }
     setIsSaving(true);
     setSuccessMsg(''); setError('');
@@ -40,7 +55,6 @@ export default function SettingsPage() {
         method: 'PUT',
         body: JSON.stringify({
           target_job_role: targetRole.trim(),
-
         })
       });
       if (user && saved.user?.target_job_role) updateTargetRole(user.id, saved.user.target_job_role);
@@ -61,7 +75,32 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-400 mt-1">Set your career goal and view the configured research model.</p>
       </div>
 
-      {error && <p role="alert" className="text-rose-300">{error}</p>}
+      {loadError && (
+        <div role="alert" className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center justify-between">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={loadSettings}
+            disabled={isLoadingSettings}
+            className="underline text-emerald-300 font-semibold ml-4 hover:text-emerald-200 disabled:opacity-50"
+          >
+            {isLoadingSettings ? 'Retrying…' : 'Retry loading'}
+          </button>
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={() => handleSaveSettings()}
+            disabled={isSaving}
+            className="underline text-emerald-300 font-semibold ml-4 hover:text-emerald-200 disabled:opacity-50"
+          >
+            {isSaving ? 'Retrying…' : 'Retry saving'}
+          </button>
+        </div>
+      )}
       {successMsg && (
         <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -91,7 +130,7 @@ export default function SettingsPage() {
           {provider && <p className="text-sm text-slate-400">Coach: {provider.coach_provider} / {provider.coach_model}. Provider fallback {provider.fallback_enabled ? 'enabled' : 'disabled'}.</p>}
         </Card>
 
-        <Button type="submit" isLoading={isSaving} leftIcon={<CheckCircle2 className="w-4 h-4" />}>
+        <Button type="submit" disabled={isSaving} isLoading={isSaving} leftIcon={<CheckCircle2 className="w-4 h-4" />}>
           Save Preferences
         </Button>
       </form>

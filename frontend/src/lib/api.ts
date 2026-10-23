@@ -13,6 +13,43 @@ export class ApiError extends Error {
   }
 }
 
+export function getDefaultTimeoutForEndpoint(endpoint: string): number {
+  if (endpoint.startsWith('/user/settings') || endpoint.startsWith('/settings')) {
+    return 15000;
+  }
+  if (endpoint.includes('/research/') || endpoint.includes('research/status')) {
+    return 20000;
+  }
+  if (endpoint.startsWith('/resume/upload') || endpoint.startsWith('/resume/pipeline') || endpoint.startsWith('/resume/')) {
+    return 45000;
+  }
+  if (endpoint.startsWith('/interview/')) {
+    return 45000;
+  }
+  if (endpoint.startsWith('/auth/')) {
+    return 30000;
+  }
+  return 30000;
+}
+
+function resolveRequestSignal(endpoint: string, callerSignal?: AbortSignal | null): AbortSignal | undefined {
+  const timeoutMs = getDefaultTimeoutForEndpoint(endpoint);
+  const timeoutSignal = typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(timeoutMs)
+    : undefined;
+
+  if (!callerSignal) {
+    return timeoutSignal;
+  }
+  if (!timeoutSignal) {
+    return callerSignal;
+  }
+  if (typeof (AbortSignal as any)?.any === 'function') {
+    return (AbortSignal as any).any([callerSignal, timeoutSignal]);
+  }
+  return callerSignal;
+}
+
 export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -28,11 +65,13 @@ export async function fetchApi<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const signal = resolveRequestSignal(endpoint, options.signal);
+
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
-      signal: options.signal ?? (endpoint.startsWith('/auth/') ? AbortSignal.timeout(30000) : undefined),
+      signal,
     });
 
     // A response belongs to the session that sent it. Late failures from a
@@ -63,6 +102,15 @@ export async function fetchApi<T>(
   } catch (error: any) {
     if (error instanceof ApiError) {
       throw error;
+    }
+    if (options.signal?.aborted) {
+      throw new ApiError('Request was cancelled.', 499);
+    }
+    if (error?.name === 'TimeoutError' || (error?.name === 'AbortError' && !options.signal?.aborted)) {
+      throw new ApiError(
+        'The request timed out. The server is taking longer than expected to respond. Please try again.',
+        408
+      );
     }
     throw new ApiError(
       'The server is taking longer than expected or your connection was interrupted. Please try again.',

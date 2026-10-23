@@ -5,7 +5,7 @@ from app.models.revoked_token import RevokedToken
 from app.deps import oauth2_scheme
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import update
+from sqlalchemy import update, func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -21,9 +21,10 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == user_in.email).first():
+    canonical_email = str(user_in.email).strip().lower()
+    if db.query(User).filter(func.lower(User.email) == canonical_email).first():
         raise HTTPException(status_code=400, detail="A user with this email ID already exists.")
-    user = User(email=user_in.email, full_name=user_in.full_name, hashed_password=get_password_hash(user_in.password))
+    user = User(email=canonical_email, full_name=user_in.full_name, hashed_password=get_password_hash(user_in.password))
     db.add(user)
     try:
         db.commit()
@@ -37,7 +38,8 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(user_in: UserLogin, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_in.email).first()
+    canonical_email = str(user_in.email).strip().lower()
+    user = db.query(User).filter(func.lower(User.email) == canonical_email).first()
     if not user or not user.is_active or not verify_password(user_in.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email address or password.")
     token = create_access_token(user.id, timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES), session_version=user.session_version)

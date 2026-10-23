@@ -42,8 +42,93 @@ class ResumeParserService:
                     text = "\n".join(parts)
             elif file_type.lower() == ".docx":
                 document = docx.Document(file_path)
-                parts = [p.text for p in document.paragraphs]
-                parts.extend(cell.text for table in document.tables for row in table.rows for cell in row.cells)
+                parts = []
+                seen_hdrftr_parts = set()
+
+                def _extract_container_items(container):
+                    items_text = []
+                    if hasattr(container, "iter_inner_content"):
+                        for item in container.iter_inner_content():
+                            if isinstance(item, docx.text.paragraph.Paragraph):
+                                t = item.text.strip()
+                                if t:
+                                    items_text.append(t)
+                            elif isinstance(item, docx.table.Table):
+                                seen_c = set()
+                                for r in item.rows:
+                                    for c in r.cells:
+                                        if c._element not in seen_c:
+                                            seen_c.add(c._element)
+                                            t = c.text.strip()
+                                            if t:
+                                                items_text.append(t)
+                    else:
+                        for p in getattr(container, "paragraphs", []):
+                            t = p.text.strip()
+                            if t:
+                                items_text.append(t)
+                        for tbl in getattr(container, "tables", []):
+                            seen_c = set()
+                            for r in tbl.rows:
+                                for c in r.cells:
+                                    if c._element not in seen_c:
+                                        seen_c.add(c._element)
+                                        t = c.text.strip()
+                                        if t:
+                                            items_text.append(t)
+                    return items_text
+
+                # 1. Section Headers (deduplicating linked headers)
+                for idx, section in enumerate(document.sections):
+                    hdrs = []
+                    if getattr(section, "different_first_page_header_footer", False):
+                        if getattr(section.first_page_header, "_has_definition", False):
+                            hdrs.append(section.first_page_header)
+                    if getattr(section.header, "_has_definition", False) or (idx == 0 and not section.header.is_linked_to_previous):
+                        hdrs.append(section.header)
+                    try:
+                        if getattr(document.settings, "odd_and_even_pages_header_footer", False):
+                            if getattr(section.even_page_header, "_has_definition", False):
+                                hdrs.append(section.even_page_header)
+                    except Exception:
+                        pass
+
+                    for h in hdrs:
+                        try:
+                            p_id = id(h.part)
+                        except Exception:
+                            p_id = id(h._element)
+                        if p_id not in seen_hdrftr_parts:
+                            seen_hdrftr_parts.add(p_id)
+                            parts.extend(_extract_container_items(h))
+
+                # 2. Main Body (paragraphs and tables in document order)
+                parts.extend(_extract_container_items(document))
+
+                # 3. Section Footers (deduplicating linked footers)
+                for idx, section in enumerate(document.sections):
+                    ftrs = []
+                    if getattr(section, "different_first_page_header_footer", False):
+                        if getattr(section.first_page_footer, "_has_definition", False):
+                            ftrs.append(section.first_page_footer)
+                    if getattr(section.footer, "_has_definition", False) or (idx == 0 and not section.footer.is_linked_to_previous):
+                        ftrs.append(section.footer)
+                    try:
+                        if getattr(document.settings, "odd_and_even_pages_header_footer", False):
+                            if getattr(section.even_page_footer, "_has_definition", False):
+                                ftrs.append(section.even_page_footer)
+                    except Exception:
+                        pass
+
+                    for f in ftrs:
+                        try:
+                            p_id = id(f.part)
+                        except Exception:
+                            p_id = id(f._element)
+                        if p_id not in seen_hdrftr_parts:
+                            seen_hdrftr_parts.add(p_id)
+                            parts.extend(_extract_container_items(f))
+
                 text = "\n".join(parts)
             else:
                 raise ValueError("Upload a PDF or DOCX resume.")

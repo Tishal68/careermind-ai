@@ -42,6 +42,12 @@ npm run test:ui
 
 GitHub Actions also checks dependencies and runs a smoke test against the production Docker image. Automated checks do not establish that all providers, professions or real-world inputs are error-free.
 
+`main` is the canonical branch. Completed work is merged into it before temporary
+branches are removed. Generated frontend exports, browser reports, dependencies,
+local databases and secrets do not belong in Git. Build the frontend from source.
+The maintained API smoke test is `backend/scripts/container_smoke.py`; browser
+coverage lives in `frontend/tests/browser`. Neither requires shared demo accounts.
+
 ## Code map
 
 - `frontend/src/app`: research, reports, resume management, action plans, coach, interviews and settings.

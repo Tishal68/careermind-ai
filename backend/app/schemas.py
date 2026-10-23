@@ -41,11 +41,37 @@ class UserResponse(UserBase):
     id: int
     is_active: bool
     is_superuser: bool
+    is_verified: bool = False
     target_job_role: Optional[str] = "AI Engineer"
     preferred_ai_model: Optional[str] = "gemini-2.5-flash"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=256)
+    new_password: str = Field(min_length=12, max_length=1024, repr=False)
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=256)
+
+
+class AccountDeleteRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=1024, repr=False)
+    confirmation: str = Field(min_length=1, max_length=100)
 
 
 class Token(BaseModel):

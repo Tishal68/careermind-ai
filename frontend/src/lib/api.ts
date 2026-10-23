@@ -50,6 +50,12 @@ function resolveRequestSignal(endpoint: string, callerSignal?: AbortSignal | nul
   return callerSignal;
 }
 
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)careermind_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -65,11 +71,18 @@ export async function fetchApi<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const csrf = getCsrfToken();
+  if (csrf && !headers['X-CSRF-Token']) {
+    headers['X-CSRF-Token'] = csrf;
+  }
+
   const signal = resolveRequestSignal(endpoint, options.signal);
+  const credentials = options.credentials ?? 'same-origin';
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
+      credentials,
       headers,
       signal,
     });

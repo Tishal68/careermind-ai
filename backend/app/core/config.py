@@ -1,6 +1,6 @@
 import os
 import secrets
-from typing import List
+from typing import List, Optional
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -43,6 +43,15 @@ class Settings(BaseSettings):
 
     # Fallback can send prompts to another provider; keep it opt-in.
     AI_FALLBACK_ENABLED: bool = False
+
+    # Email / SMTP Configuration
+    SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: Optional[str] = os.getenv("SMTP_USER")
+    SMTP_PASSWORD: Optional[SecretStr] = SecretStr(os.getenv("SMTP_PASSWORD", ""))
+    SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "noreply@careermind.ai")
+    SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     # Only configure verified proxy networks; forwarding headers are ignored otherwise.
     TRUSTED_PROXY_CIDRS: List[str] = []

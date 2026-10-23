@@ -6,6 +6,7 @@ from app.models.chat import ChatSession, ChatMessage, CareerMemory
 from app.models.interview import InterviewSession
 from app.models.profile import CareerProfile, ResumeVersion
 from app.models.research import ResearchJob
+from app.models.account_token import AccountToken
 
 __all__ = [
     "Base",
@@ -17,7 +18,8 @@ __all__ = [
     "CareerMemory",
     "InterviewSession",
     "CareerProfile",
-    "ResumeVersion"
+    "ResumeVersion",
+    "AccountToken"
 ]
 
 from app.models.revoked_token import RevokedToken

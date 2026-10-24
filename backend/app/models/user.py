@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, text
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -16,7 +16,7 @@ class User(Base):
     preferred_ai_model = Column(String(100), default="gemini-2.5-flash")
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
-    is_verified = Column(Boolean, default=False, server_default="0", nullable=False)
+    is_verified = Column(Boolean, default=False, server_default=text("false"), nullable=False)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -3,7 +3,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0004_account_tokens_and_lifecycle"
+revision = "0004_account_lifecycle"
 down_revision = "0003_normalize_user_emails"
 branch_labels = None
 depends_on = None

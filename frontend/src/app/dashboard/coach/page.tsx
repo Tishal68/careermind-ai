@@ -18,19 +18,80 @@ export default function CareerCoachPage() {
     try { const page = await fetchApi<any>(`/analysis/report-summaries?limit=20&before=${reports.data.next_before}`); reports.update(previous => ({items:[...previous.items,...page.items],next_before:page.next_before})); }
     catch (err: any) { setListError(err.message); } finally { setMoreBusy(false); }
   }
+  const hasReports = Boolean(reports.data?.items && reports.data.items.length > 0);
+  const isEmpty = !reports.loading && Boolean(reports.data && reports.data.items.length === 0) && !selected;
+
   return <>
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-8 space-y-3">
-      <label htmlFor="coach-report" className="block font-semibold">Choose the report for this conversation</label>
-      <select id="coach-report" value={selected} onChange={e => { setSelected(e.target.value); window.history.replaceState(null, "", `/dashboard/coach?report=${e.target.value}`); }} className="w-full rounded-xl bg-slate-900 border border-slate-700 p-3">
-        <option value="" disabled>Select a report</option>
-        {selected && !reports.data?.items.some((item: any) => String(item.id)===selected) && <option value={selected}>Selected report #{selected}</option>}
-        {reports.data?.items.map((item: any) => <option key={item.id} value={item.id}>#{item.id} · {item.job_role} · {new Date(item.created_at).toLocaleDateString()}</option>)}
-      </select>
-      {reports.loading && <p role="status">Loading reports…</p>}
-      {reports.error && <p role="alert">Could not load reports. <button onClick={reports.reload} className="underline">Retry reports</button></p>}
-      {listError && <p role="alert">{listError}</p>}
-      {reports.data?.next_before && <button disabled={moreBusy} onClick={more} className="text-emerald-300 underline">Load older reports</button>}
-      {reports.data?.items.length===0 && !selected && <Link href="/dashboard" className="underline">Analyze a resume to start coaching</Link>}
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-8 space-y-6">
+      <header className="pb-4 border-b border-white/10">
+        <p className="text-xs uppercase tracking-widest text-emerald-400 font-bold">Career advice & development</p>
+        <h1 className="text-3xl font-bold text-white mt-2 flex items-center gap-3">
+          <Bot className="w-8 h-8 text-emerald-400" />
+          Career coach
+        </h1>
+        <p className="text-slate-400 text-sm mt-1">
+          Focused help with your resume, role fit, learning plan, projects, and interview preparation.
+        </p>
+      </header>
+
+      {isEmpty && (
+        <div className="rounded-2xl border border-white/10 bg-slate-900/60 p-8 text-center space-y-4">
+          <Bot className="w-12 h-12 text-emerald-400/80 mx-auto" />
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-white">No career reports found</h2>
+            <p className="text-slate-400 text-sm max-w-md mx-auto">
+              Your career coach uses evidence from your resume analysis and role research to provide personalized career advice and action plans.
+            </p>
+          </div>
+          <div>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-950/40"
+            >
+              Analyze a resume to start coaching
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {(reports.loading || hasReports || selected) && (
+        <div className="space-y-3">
+          <label htmlFor="coach-report" className="block text-sm font-semibold text-slate-300">
+            Choose the report for this conversation
+          </label>
+          <select
+            id="coach-report"
+            value={selected}
+            onChange={e => {
+              setSelected(e.target.value);
+              window.history.replaceState(null, "", `/dashboard/coach?report=${e.target.value}`);
+            }}
+            className="w-full rounded-xl bg-slate-900 border border-slate-700 p-3 text-white focus:outline-none focus:border-emerald-500"
+          >
+            <option value="" disabled>Select a report</option>
+            {selected && !reports.data?.items.some((item: any) => String(item.id)===selected) && (
+              <option value={selected}>Selected report #{selected}</option>
+            )}
+            {reports.data?.items.map((item: any) => (
+              <option key={item.id} value={item.id}>
+                #{item.id} · {item.job_role} · {new Date(item.created_at).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
+          {reports.loading && <p role="status" className="text-sm text-slate-400">Loading reports…</p>}
+          {reports.error && (
+            <p role="alert" className="text-sm text-rose-300">
+              Could not load reports. <button onClick={reports.reload} className="underline text-emerald-400">Retry reports</button>
+            </p>
+          )}
+          {listError && <p role="alert" className="text-sm text-rose-300">{listError}</p>}
+          {reports.data?.next_before && (
+            <button disabled={moreBusy} onClick={more} className="text-sm text-emerald-300 underline">
+              Load older reports
+            </button>
+          )}
+        </div>
+      )}
     </div>
     {selected && <CoachConversation key={selected} reportId={Number(selected)} />}
   </>;
@@ -83,8 +144,11 @@ function CoachConversation({reportId}: {reportId: number}) {
     finally { setBusy(false); }
   }
 
-  return <div className="max-w-6xl mx-auto px-4 sm:px-8 py-10 space-y-6">
-    <header><p className="text-xs uppercase tracking-widest text-emerald-400 font-bold">Powered by Ollama</p><h1 className="text-3xl font-bold text-white mt-3">Your career coach</h1><p className="text-slate-400 mt-2">Focused help with your resume, role fit, learning plan, projects, and interviews.</p></header>
+  return <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+    <div className="flex items-center justify-between text-xs text-slate-400 border-b border-white/5 pb-3">
+      <span className="uppercase tracking-widest text-emerald-400 font-bold">Conversation with AI Coach</span>
+      <span>Powered by Ollama</span>
+    </div>
     <div className="grid lg:grid-cols-[1fr_280px] gap-6 items-start">
       <section className="rounded-2xl border border-white/10 bg-slate-900/50 overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-white/10"><span className="flex items-center gap-2 text-sm"><Bot className="w-5 h-5 text-emerald-400" />Career conversation</span><button aria-label="Clear conversation" onClick={clear} disabled={busy || !messages.length} className="p-2 text-slate-400 hover:text-white disabled:opacity-30"><Trash2 className="w-4 h-4" /></button></div>

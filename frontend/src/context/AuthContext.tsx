@@ -9,6 +9,7 @@ interface User {
   full_name: string | null;
   is_active: boolean;
   is_superuser?: boolean;
+  is_verified?: boolean;
   target_job_role?: string | null;
   preferred_ai_model?: string | null;
   created_at: string;

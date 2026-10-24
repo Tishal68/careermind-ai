@@ -46,3 +46,13 @@ test('coach pins context, sends and clearing to the selected report',async({page
   await expect(page.getByText('Nurse',{exact:true})).toBeVisible();await expect(page).toHaveURL(/report=2/);
   await page.reload();await expect(page.getByLabel('Choose the report for this conversation')).toHaveValue('2');
 });
+
+test('coach page displays persistent heading and clear empty state when no reports exist', async ({ page }) => {
+  await page.route('**/api/v1/analysis/report-summaries?limit=20', route => route.fulfill({
+    json: { items: [], next_before: null }
+  }));
+  await page.goto('/dashboard/coach');
+  await expect(page.getByRole('heading', { level: 1, name: 'Career coach' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'No career reports found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Analyze a resume to start coaching' })).toBeVisible();
+});

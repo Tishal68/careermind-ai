@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Input } from '@/components/UIComponents';
 import JobRoleInput from '@/components/JobRoleInput';
 import PasswordSettings from '@/components/PasswordSettings';
+import AccountLifecycleSettings from '@/components/AccountLifecycleSettings';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { Settings, Target, Cpu, Key, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
@@ -135,6 +136,7 @@ export default function SettingsPage() {
         </Button>
       </form>
       <PasswordSettings />
+      <AccountLifecycleSettings />
     </div>
   );
 }

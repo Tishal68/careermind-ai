@@ -19,7 +19,9 @@ from app.deps import get_current_user, oauth2_scheme
 from app.models.user import User
 from app.models.revoked_token import RevokedToken
 from app.models.account_token import AccountToken
+from app.models.profile import ResumeVersion
 from app.services import email_service
+from app.services.upload_safety import remove_owned_directory
 from app.schemas import (
     UserCreate,
     UserLogin,
@@ -109,7 +111,11 @@ def register(
     canonical_email = str(user_in.email).strip().lower()
     if db.query(User).filter(func.lower(User.email) == canonical_email).first():
         raise HTTPException(status_code=400, detail="A user with this email ID already exists.")
-    user = User(email=canonical_email, full_name=user_in.full_name, hashed_password=get_password_hash(user_in.password))
+    # SQLite can reuse a deleted numeric ID. A fresh session generation prevents
+    # the deleted account's JWTs from authenticating as a later account with that ID.
+    user = User(email=canonical_email, full_name=user_in.full_name,
+                hashed_password=get_password_hash(user_in.password),
+                session_version=secrets.randbelow(1_000_000_000) + 1)
     db.add(user)
     try:
         db.commit()
@@ -162,8 +168,9 @@ def logout(
                 expires_at=datetime.fromtimestamp(payload.get("exp", 0), timezone.utc)
             ))
             db.commit()
-        except Exception:
-            pass
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(503, "Could not revoke your session. Please retry signing out.") from exc
 
 
 @router.post("/change-password", response_model=Token)
@@ -207,6 +214,9 @@ def forgot_password(
     if not _forgot_attempts.allow(client_key):
         raise HTTPException(429, "Too many password-reset requests. Retry in a minute.", headers={"Retry-After": "60"})
 
+    if not email_service.is_smtp_configured():
+        raise HTTPException(503, "Password recovery email is unavailable. Please contact support or try again later.")
+
     canonical_email = str(body.email).strip().lower()
     user = db.query(User).filter(func.lower(User.email) == canonical_email).first()
 
@@ -233,7 +243,7 @@ def forgot_password(
         email_service.send_password_reset_email(user.email, raw_token)
 
     return {
-        "detail": "If an account with this email exists, password reset instructions have been sent.",
+        "detail": "Request received. If an eligible account exists and email delivery succeeds, you will receive password reset instructions. If no email arrives, retry later or contact support.",
         "email_delivery_configured": email_service.is_smtp_configured()
     }
 
@@ -272,11 +282,20 @@ def reset_password(
     if not user or not user.is_active:
         raise HTTPException(400, "Account is invalid or inactive.")
 
-    # Mark token used
-    account_token.used_at = now
+    # Claim the single-use token atomically, including across worker processes.
+    claimed = db.execute(update(AccountToken).where(
+        AccountToken.id == account_token.id,
+        AccountToken.used_at.is_(None),
+        AccountToken.expires_at > now,
+    ).values(used_at=now), execution_options={"synchronize_session": False})
+    if claimed.rowcount != 1:
+        db.rollback()
+        raise HTTPException(400, "Invalid or expired password reset token.")
     # Invalidate existing sessions
-    user.hashed_password = get_password_hash(body.new_password)
-    user.session_version += 1
+    db.execute(update(User).where(User.id == user.id).values(
+        hashed_password=get_password_hash(body.new_password),
+        session_version=User.session_version + 1,
+    ), execution_options={"synchronize_session": False})
 
     db.commit()
 
@@ -314,7 +333,9 @@ def send_email_verification(
     db.add(account_token)
     db.commit()
 
-    email_service.send_verification_email(current_user.email, raw_token)
+    delivery = email_service.send_verification_email(current_user.email, raw_token)
+    if not delivery["delivered"]:
+        raise HTTPException(503, "Verification email could not be sent. Please try again later or contact support.")
 
     return {
         "detail": "Verification email has been sent.",
@@ -367,6 +388,9 @@ def export_account_data(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    def record_data(record):
+        return {column.name: getattr(record, column.name) for column in record.__table__.columns} if record else None
+
     data = {
         "export_metadata": {
             "exported_at": datetime.now(timezone.utc).isoformat(),
@@ -389,6 +413,7 @@ def export_account_data(
                 "file_name": s.file_name,
                 "file_type": s.file_type,
                 "parsed_data": s.parsed_data,
+                "raw_text": s.raw_text,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
             }
             for s in current_user.resume_sessions
@@ -400,6 +425,10 @@ def export_account_data(
                 "field": r.field,
                 "experience_level": r.experience_level,
                 "nex_score": r.nex_score,
+                "nex_score_breakdown": r.nex_score_breakdown,
+                "resume_score": r.resume_score,
+                "ats_score": r.ats_score,
+                "readiness_score": r.readiness_score,
                 "analysis_data": r.analysis_data,
                 "gap_analysis": r.gap_analysis,
                 "roadmap_data": r.roadmap_data,
@@ -442,11 +471,18 @@ def export_account_data(
             {
                 "id": rj.id,
                 "status": rj.status,
-                "preferences": rj.preferences,
+                "preferences": rj.request_data,
+                "report_id": rj.report_id,
+                "error": rj.error,
                 "created_at": rj.created_at.isoformat() if rj.created_at else None,
             }
             for rj in current_user.research_jobs
         ],
+        "career_profile": record_data(current_user.career_profile),
+        "career_memory": record_data(current_user.career_memory),
+        "resume_versions": [record_data(version) for version in db.query(ResumeVersion).filter(
+            ResumeVersion.resume_session_id.in_([s.id for s in current_user.resume_sessions])
+        ).all()],
     }
 
     content = json.dumps(data, indent=2, default=str)
@@ -476,14 +512,6 @@ def delete_account(
     if not verify_password(body.password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect password.")
 
-    # 1. Clean up uploaded resume files from disk
-    for session in current_user.resume_sessions:
-        if session.file_path and os.path.exists(session.file_path):
-            try:
-                os.remove(session.file_path)
-            except OSError:
-                pass
-
     # 2. Revoke currently active token
     auth_header = request.headers.get("authorization")
     raw_token = auth_header[7:].strip() if auth_header and auth_header.lower().startswith("bearer ") else request.cookies.get("careermind_session")
@@ -502,6 +530,10 @@ def delete_account(
 
     # 4. Delete user record (cascades to all user tables)
     db.delete(current_user)
+    # Check relational constraints before touching files. Only remove this user's
+    # owned upload directory; never trust arbitrary file paths stored in records.
+    db.flush()
+    remove_owned_directory(os.path.join(settings.UPLOAD_DIR, f"user_{current_user.id}"), settings.UPLOAD_DIR)
     db.commit()
 
     return {"detail": "Account and all associated personal data have been permanently deleted."}

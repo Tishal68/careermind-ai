@@ -4,7 +4,7 @@ import re
 import secrets
 from datetime import datetime, timezone, timedelta
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
@@ -17,13 +17,23 @@ from app.models.session import ResumeSession
 from app.models.report import CareerReport
 from app.models.chat import ChatSession, ChatMessage
 from app.models.interview import InterviewSession
+from app.models.research import ResearchJob, ResearchSlot, ResearchSubmission, ResearchLease
 from app.services import email_service
 
 
 @pytest.fixture(name="lifecycle_db")
-def fixture_lifecycle_db(tmp_path):
+def fixture_lifecycle_db(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(email_service, "is_smtp_configured", lambda: True)
+    def capture_email(to_email, subject, content):
+        email_service.test_outbox.append({"to": to_email, "subject": subject, "content": content, "delivered": True})
+        return {"delivered": True}
+    monkeypatch.setattr(email_service, "send_email", capture_email)
     db_file = tmp_path / "test_lifecycle.db"
     engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
+    @event.listens_for(engine, "connect")
+    def foreign_keys(connection, record):
+        connection.execute("PRAGMA foreign_keys=ON")
     Base.metadata.create_all(bind=engine)
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -245,7 +255,8 @@ def test_account_export_and_deletion(lifecycle_db, tmp_path):
     client = TestClient(app)
 
     # Create dummy uploaded file on disk
-    dummy_resume_file = tmp_path / "resume_fixture.pdf"
+    (tmp_path / "user_1").mkdir()
+    dummy_resume_file = tmp_path / "user_1" / "resume_fixture.pdf"
     dummy_resume_file.write_text("Dummy resume file content")
 
     with lifecycle_db() as db:
@@ -285,6 +296,13 @@ def test_account_export_and_deletion(lifecycle_db, tmp_path):
             project_recommendations=["Portfolio Project"]
         )
         db.add(report)
+        db.flush()
+        job = ResearchJob(user_id=user_id, status="completed", request_data={"role": "Data Scientist"}, report_id=report.id)
+        db.add(job)
+        db.flush()
+        db.add(ResearchSlot(user_id=user_id, job_id=job.id))
+        db.add(ResearchSubmission(user_id=user_id, request_key="export-test", fingerprint="test", job_id=job.id))
+        db.add(ResearchLease(job_id=job.id, token="test", expires_at=datetime.now(timezone.utc)))
 
         # Add chat session
         chat = ChatSession(user_id=user_id, session_date="2026-10-23", title="Prep Session")
@@ -317,6 +335,7 @@ def test_account_export_and_deletion(lifecycle_db, tmp_path):
     assert len(data["career_reports"]) == 1
     assert len(data["chat_sessions"]) == 1
     assert len(data["interview_sessions"]) == 1
+    assert data["research_jobs"][0]["preferences"]["role"] == "Data Scientist"
 
     # 2. Test DELETE /auth/delete with wrong confirmation
     bad_conf = client.request(
@@ -356,6 +375,39 @@ def test_account_export_and_deletion(lifecycle_db, tmp_path):
         assert db.query(CareerReport).filter(CareerReport.user_id == user_id).first() is None
         assert db.query(ChatSession).filter(ChatSession.user_id == user_id).first() is None
         assert db.query(InterviewSession).filter(InterviewSession.user_id == user_id).first() is None
+        assert db.query(ResearchJob).count() == 0
+        assert db.query(ResearchSlot).count() == 0
+        assert db.query(ResearchSubmission).count() == 0
+        assert db.query(ResearchLease).count() == 0
 
     # Subsequent request with old token is rejected
     assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
+
+
+def test_email_unavailability_and_failed_delivery_are_not_success(lifecycle_db, monkeypatch):
+    client = TestClient(app)
+    monkeypatch.setattr(email_service, "is_smtp_configured", lambda: False)
+    response = client.post("/api/v1/auth/forgot-password", json={"email": "missing@example.com"})
+    assert response.status_code == 503
+    with lifecycle_db() as db:
+        user = User(email="mail-failure@example.com", hashed_password=get_password_hash("LongPassword123!"))
+        db.add(user)
+        db.commit()
+        token = create_access_token(user.id)
+    monkeypatch.setattr(email_service, "send_verification_email", lambda *args: {"delivered": False})
+    response = client.post("/api/v1/auth/send-verification", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 503
+    assert "could not be sent" in response.json()["detail"]
+
+
+def test_deleted_account_sessions_cannot_access_reused_sqlite_user_id(lifecycle_db):
+    client = TestClient(app)
+    password = "Long-unique-password-123!"
+    first = client.post("/api/v1/auth/register", json={"email":"first@example.com", "password":password}).json()
+    other_session = client.post("/api/v1/auth/login", json={"email":"first@example.com", "password":password}).json()["access_token"]
+    deleted = client.request("DELETE", "/api/v1/auth/delete", headers={"Authorization":f"Bearer {first['access_token']}"}, json={"password":password,"confirmation":"DELETE MY ACCOUNT"})
+    assert deleted.status_code == 200
+    second = client.post("/api/v1/auth/register", json={"email":"second@example.com", "password":password}).json()
+    assert second["user"]["id"] == first["user"]["id"]
+    assert client.get("/api/v1/auth/me", headers={"Authorization":f"Bearer {other_session}"}).status_code == 401
+    assert client.get("/api/v1/auth/me", headers={"Authorization":f"Bearer {second['access_token']}"}).status_code == 200

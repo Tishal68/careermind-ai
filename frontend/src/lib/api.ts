@@ -14,6 +14,11 @@ export class ApiError extends Error {
 }
 
 export function getDefaultTimeoutForEndpoint(endpoint: string): number {
+  // These synchronous operations can use the provider's 180-second budget.
+  // Keep the client deadline below the proxy's 210 seconds, not below the AI call.
+  if (['/chat/message', '/analysis/analyze', '/resume/pipeline', '/interview/start', '/interview/evaluate'].includes(endpoint)) {
+    return 200000;
+  }
   if (endpoint.startsWith('/user/settings') || endpoint.startsWith('/settings')) {
     return 15000;
   }

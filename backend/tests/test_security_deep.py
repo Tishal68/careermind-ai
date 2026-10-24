@@ -23,7 +23,7 @@ from app.ai.providers.ollama import OllamaLLMProvider
 def test_logout_revokes_only_the_signed_out_token(secured):
     client, db = secured
     uid, headers = account(client)
-    second = {"Authorization": "Bearer " + create_access_token(uid)}
+    second = {"Authorization": "Bearer " + create_access_token(uid, session_version=db.get(User, uid).session_version)}
     assert client.post("/api/v1/auth/logout", headers=headers).status_code == 204
     assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
     assert client.get("/api/v1/auth/me", headers=second).status_code == 200

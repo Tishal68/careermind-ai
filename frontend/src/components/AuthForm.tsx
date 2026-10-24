@@ -62,6 +62,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
             </fieldset>
             {busy && <p role="status" className="text-xs text-slate-400">Connecting securely. The first visit may take a moment.</p>}
           </form>
+          {!register && <Link href="/forgot-password" className="mt-5 block text-sm text-emerald-300 underline">Forgot password?</Link>}
           <p className="text-sm text-center text-slate-400 mt-7">{register ? 'Already have an account?' : 'New to CareerMind?'} <Link href={register ? '/login' : '/register'} className="text-emerald-300 hover:text-emerald-200 font-semibold underline underline-offset-4">{register ? 'Sign in' : 'Create account'}</Link></p>
         </>}
       </section>

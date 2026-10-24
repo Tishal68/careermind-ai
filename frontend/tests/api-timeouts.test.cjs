@@ -36,9 +36,11 @@ test('endpoint timeouts match specification', () => {
   assert.equal(getDefaultTimeoutForEndpoint('/analysis/research/42'), 20000);
   assert.equal(getDefaultTimeoutForEndpoint('/analysis/research/status'), 20000);
   assert.equal(getDefaultTimeoutForEndpoint('/resume/upload'), 45000);
-  assert.equal(getDefaultTimeoutForEndpoint('/resume/pipeline'), 45000);
-  assert.equal(getDefaultTimeoutForEndpoint('/interview/start'), 45000);
-  assert.equal(getDefaultTimeoutForEndpoint('/interview/evaluate'), 45000);
+  assert.equal(getDefaultTimeoutForEndpoint('/resume/pipeline'), 200000);
+  assert.equal(getDefaultTimeoutForEndpoint('/interview/start'), 200000);
+  assert.equal(getDefaultTimeoutForEndpoint('/interview/evaluate'), 200000);
+  assert.equal(getDefaultTimeoutForEndpoint('/chat/message'), 200000);
+  assert.equal(getDefaultTimeoutForEndpoint('/analysis/analyze'), 200000);
   assert.equal(getDefaultTimeoutForEndpoint('/auth/login'), 30000);
   assert.equal(getDefaultTimeoutForEndpoint('/auth/change-password'), 30000);
   assert.equal(getDefaultTimeoutForEndpoint('/other/endpoint'), 30000);

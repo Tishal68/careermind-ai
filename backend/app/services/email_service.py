@@ -31,7 +31,9 @@ def send_email(to_email: str, subject: str, content: str) -> Dict[str, Any]:
             "delivered": False,
             "reason": "SMTP host is not configured on this server.",
         }
-        test_outbox.append(record)
+        if settings.ENVIRONMENT != "production":
+            test_outbox.append(record)
+            del test_outbox[:-100]
         return record
 
     msg = EmailMessage()
@@ -67,7 +69,7 @@ def send_email(to_email: str, subject: str, content: str) -> Dict[str, Any]:
 
 
 def send_password_reset_email(to_email: str, token: str) -> Dict[str, Any]:
-    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password#token={token}"
     subject = "CareerMind AI - Password Reset Request"
     body = (
         f"Hello,\n\n"
@@ -82,7 +84,7 @@ def send_password_reset_email(to_email: str, token: str) -> Dict[str, Any]:
 
 
 def send_verification_email(to_email: str, token: str) -> Dict[str, Any]:
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email#token={token}"
     subject = "CareerMind AI - Verify Your Email Address"
     body = (
         f"Hello,\n\n"

@@ -23,6 +23,17 @@ def headers(token):
 def test_change_invalidates_all_old_sessions_and_legacy_tokens(application_client):
     client = application_client
     first = account(client)
+    # Model a pre-session-version account, rather than assuming new accounts
+    # have the legacy generation zero.
+    from app.core.database import get_db
+    from app.models.user import User
+    database = client.app.dependency_overrides[get_db]()
+    db = next(database)
+    uid = int(jwt.decode(first, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])['sub'])
+    db.get(User, uid).session_version = 0
+    db.commit()
+    database.close()
+    first = client.post('/api/v1/auth/login', json={'email': 'password-test@example.com', 'password': OLD}).json()['access_token']
     second = client.post('/api/v1/auth/login', json={'email': 'password-test@example.com', 'password': OLD}).json()['access_token']
     payload = jwt.decode(first, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     payload.pop('sv')

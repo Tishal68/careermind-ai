@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[SecretStr] = SecretStr(os.getenv("SMTP_PASSWORD", ""))
     SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "noreply@careermind.ai")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", os.getenv("RENDER_EXTERNAL_URL", "http://localhost:3000"))
 
     # Only configure verified proxy networks; forwarding headers are ignored otherwise.
     TRUSTED_PROXY_CIDRS: List[str] = []

@@ -30,7 +30,7 @@ export default function PasswordSettings() {
       login(result.access_token, result.user);
       setCurrent(''); setPassword(''); setConfirmation(''); setSuccess(true);
     } catch (err: any) {
-      setError(err.status === 503
+      setError([408, 499, 503].includes(err.status)
         ? 'The connection was interrupted, so we could not confirm the change. Try signing in with your new password before retrying.'
         : err.message || 'Could not change your password. Please try again.');
     } finally { submitting.current = false; setBusy(false); }

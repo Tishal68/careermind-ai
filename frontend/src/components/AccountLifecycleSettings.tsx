@@ -144,7 +144,7 @@ export default function AccountLifecycleSettings() {
 
         <div className="pt-2 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-white">Data Portability (GDPR & CCPA)</p>
+            <p className="text-sm font-semibold text-white">Download your account data</p>
             <p className="text-xs text-slate-400">Download a full JSON archive of your resumes, career reports, and interview history.</p>
           </div>
           <Button

@@ -43,6 +43,11 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat /tmp/pg_test.log >> $GITHUB_STEP_SUMMARY || true
           echo '```' >> $GITHUB_STEP_SUMMARY
+      - name: Emit Postgres failure annotation
+        if: failure()
+        run: |
+          ERR=$(tail -n 20 /tmp/pg_test.log | tr '\n' ' ' | tr '"' "'")
+          echo "::error title=PostgresFailure::$ERR"
   backend:
     runs-on: ubuntu-latest
     steps:

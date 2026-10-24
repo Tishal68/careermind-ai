@@ -21,6 +21,10 @@ def storage_engine(tmp_path):
             connection.execute(text("DROP SCHEMA public CASCADE"))
             connection.execute(text("CREATE SCHEMA public"))
     yield engine
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(text("DROP SCHEMA public CASCADE"))
+            connection.execute(text("CREATE SCHEMA public"))
     engine.dispose()
 
 

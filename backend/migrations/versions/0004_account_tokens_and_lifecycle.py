@@ -13,19 +13,21 @@ def upgrade():
     op.add_column("users", sa.Column("is_verified", sa.Boolean(), server_default=sa.text("false"), nullable=False))
     op.create_table(
         "account_tokens",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("token_hash", sa.String(64), nullable=False),
-        sa.Column("token_type", sa.String(32), nullable=False),
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("token_hash", sa.String(length=64), nullable=False),
+        sa.Column("token_type", sa.String(length=32), nullable=False),
         sa.Column("expires_at", sa.DateTime(), nullable=False),
         sa.Column("used_at", sa.DateTime(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
     )
+    op.create_index(op.f("ix_account_tokens_expires_at"), "account_tokens", ["expires_at"], unique=False)
     op.create_index(op.f("ix_account_tokens_id"), "account_tokens", ["id"], unique=False)
-    op.create_index(op.f("ix_account_tokens_user_id"), "account_tokens", ["user_id"], unique=False)
     op.create_index(op.f("ix_account_tokens_token_hash"), "account_tokens", ["token_hash"], unique=True)
     op.create_index(op.f("ix_account_tokens_token_type"), "account_tokens", ["token_type"], unique=False)
-    op.create_index(op.f("ix_account_tokens_expires_at"), "account_tokens", ["expires_at"], unique=False)
+    op.create_index(op.f("ix_account_tokens_user_id"), "account_tokens", ["user_id"], unique=False)
 
 
 def downgrade():

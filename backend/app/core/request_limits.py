@@ -78,7 +78,7 @@ class RequestLimitsMiddleware:
                 proxy_only = False
             if not self.global_auth.allow("all") or (not proxy_only and not self.auth.allow(identity)):
                 return await reject(429, "Too many authentication attempts. Retry in a minute.")
-        if scope["method"] in ("POST", "PUT", "PATCH"):
+        if scope["method"] in ("POST", "PUT", "PATCH", "DELETE"):
             limit = 6 * 1024 * 1024 if path.startswith("/api/v1/resume/") else 64 * 1024
             chunks, size = [], 0
             deadline = time.monotonic() + 20

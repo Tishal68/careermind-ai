@@ -36,11 +36,14 @@ def test_request_limit_counts_actual_bytes_and_auth_attempts():
     def login():
         return {}
     @app.post('/data')
+    @app.delete('/data')
     async def data(request: Request):
         return {"size": len(await request.body())}
     with TestClient(app) as client:
         assert client.post('/data', content=b'x' * 65536).status_code == 200
         assert client.post('/data', content=b'x' * 65537).status_code == 413
+        assert client.request('DELETE', '/data', content=b'x' * 65537).status_code == 413
+        assert client.request('DELETE', '/data', content=b'{}').status_code == 200
         assert client.post('/data', content=iter([b'x'*40000, b'y'*40000])).status_code == 413
         assert client.post('/api/v1/auth/login').status_code == 200
         assert client.post('/api/v1/auth/login').status_code == 200

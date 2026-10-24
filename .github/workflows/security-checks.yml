@@ -24,16 +24,25 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r backend/requirements-dev.txt
-      - run: >-
-          python -m pytest -v --tb=short tests/test_storage_migrations.py
-          tests/test_email_normalization.py
-          tests/test_password_change.py::test_simultaneous_password_changes_have_one_winner
-          tests/test_password_change.py::test_login_racing_password_change_cannot_get_new_session_version
-          tests/test_interview_recovery.py
-          tests/test_reliability.py::test_concurrent_idempotent_admission
-          tests/test_reliability.py::test_worker_restart_recovery_and_single_report
-          tests/test_reliability.py::test_saturation_keeps_job_queued
+      - name: Run Postgres checks
+        run: |
+          python -m pytest -v --tb=short \
+            tests/test_storage_migrations.py \
+            tests/test_email_normalization.py \
+            tests/test_password_change.py::test_simultaneous_password_changes_have_one_winner \
+            tests/test_password_change.py::test_login_racing_password_change_cannot_get_new_session_version \
+            tests/test_interview_recovery.py \
+            tests/test_reliability.py::test_concurrent_idempotent_admission \
+            tests/test_reliability.py::test_worker_restart_recovery_and_single_report \
+            tests/test_reliability.py::test_saturation_keeps_job_queued > /tmp/pg_test.log 2>&1 || (cat /tmp/pg_test.log && exit 1)
         working-directory: backend
+      - name: Report Postgres summary
+        if: always()
+        run: |
+          echo "## Postgres Test Output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/pg_test.log >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
   backend:
     runs-on: ubuntu-latest
     steps:

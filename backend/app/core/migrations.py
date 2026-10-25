@@ -48,5 +48,11 @@ def migrate(engine):
                 )
             command.stamp(config, BASELINE)
         command.upgrade(config, "head")
+        if connection.dialect.name == "postgresql":
+            # Supabase exposes public tables through a Data API. These tables
+            # belong exclusively to our backend owner; no client policies exist.
+            quote = connection.dialect.identifier_preparer.quote
+            for table in Base.metadata.sorted_tables:
+                connection.exec_driver_sql(f"ALTER TABLE {quote(table.name)} ENABLE ROW LEVEL SECURITY")
         if not schema_current(connection):
             raise RuntimeError("Database schema revision is not current")

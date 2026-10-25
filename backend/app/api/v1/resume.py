@@ -2,6 +2,8 @@ from app.core.request_limits import expensive_request
 import os
 import uuid
 import shutil
+from pathlib import Path
+from urllib.parse import quote
 from app.core.config import settings
 from app.services.upload_safety import extract_isolated, remove_owned_directory
 from typing import List, Optional
@@ -52,6 +54,27 @@ def save_resume_upload(file: UploadFile, user_id: int):
     return filename, ext, session_uuid, saved_path, raw_text
 
 
+def persist_resume_upload(file: UploadFile, user_id: int, db: Session):
+    filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, user_id)
+    try:
+        record = ResumeSession(user_id=user_id, session_uuid=session_uuid,
+            file_name=filename, file_type=ext, file_path="", raw_text=raw_text,
+            parsed_data=ResumeParserService.parse_resume_content(raw_text),
+            file_content=Path(saved_path).read_bytes())
+        remove_owned_directory(os.path.dirname(saved_path), os.path.join(UPLOAD_DIR, f"user_{user_id}"))
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return record
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        # Extraction needs a temporary file; the database owns the durable copy.
+        if Path(saved_path).exists():
+            remove_owned_directory(os.path.dirname(saved_path), os.path.join(UPLOAD_DIR, f"user_{user_id}"))
+
+
 @router.post("/auto-pipeline", tags=["NexPath Auto Pipeline"], dependencies=[Depends(expensive_request)])
 def run_auto_pipeline(
     file: UploadFile = File(...),
@@ -64,23 +87,8 @@ def run_auto_pipeline(
         raise HTTPException(422, "This legacy pipeline has no verified profile for this profession. Upload through /api/v1/resume/upload and use /api/v1/analysis/research with the actual job description or market sources.")
     if db.query(ResumeSession).filter(ResumeSession.user_id == current_user.id).count() >= 20:
         raise HTTPException(409, "You have reached the 20-resume limit. Delete an old resume before uploading another.")
-    filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, current_user.id)
-    parsed = ResumeParserService.parse_resume_content(raw_text)
-
-    # Create ResumeSession Root Entity
-    session_record = ResumeSession(
-        user_id=current_user.id,
-        session_uuid=session_uuid,
-        file_name=filename,
-        file_type=ext,
-        file_path=saved_path,
-        raw_text=raw_text,
-        parsed_data=parsed,
-        is_active=True
-    )
-    db.add(session_record)
-    db.commit()
-    db.refresh(session_record)
+    session_record = persist_resume_upload(file, current_user.id, db)
+    parsed = session_record.parsed_data
 
     current_user.target_job_role = job_role
 
@@ -128,13 +136,7 @@ def run_auto_pipeline(
 def upload_resume(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if db.query(ResumeSession).filter(ResumeSession.user_id == current_user.id).count() >= 20:
         raise HTTPException(409, "You have reached the 20-resume limit. Delete an old resume before uploading another.")
-    filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, current_user.id)
-    parsed = ResumeParserService.parse_resume_content(raw_text)
-    record = ResumeSession(user_id=current_user.id, session_uuid=session_uuid, file_name=filename, file_type=ext, file_path=saved_path, raw_text=raw_text, parsed_data=parsed)
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    return record
+    return persist_resume_upload(file, current_user.id, db)
 
 
 @router.delete("/session/{resume_id}", status_code=204)
@@ -149,8 +151,9 @@ def delete_resume_session(resume_id: int, db: Session = Depends(get_db), current
             if job.status in ("pending", "running") and not expired(job):
                 raise HTTPException(409, "Wait for resume research to finish before deleting it.")
             db.delete(job)
-    session_dir = os.path.dirname(session_record.file_path)
-    remove_owned_directory(session_dir, os.path.join(UPLOAD_DIR, f"user_{current_user.id}"))
+    if session_record.file_path:
+        session_dir = os.path.dirname(session_record.file_path)
+        remove_owned_directory(session_dir, os.path.join(UPLOAD_DIR, f"user_{current_user.id}"))
 
     db.delete(session_record)
     db.commit()
@@ -169,3 +172,17 @@ def get_resume_text(resume_id: int, response: Response, db: Session = Depends(ge
         raise HTTPException(404, "Resume not found")
     response.headers["Cache-Control"] = "no-store"
     return {"id": record.id, "file_name": record.file_name, "text": record.raw_text or ""}
+
+
+@router.get("/session/{resume_id}/file")
+def download_resume(resume_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    record = db.query(ResumeSession).filter(ResumeSession.id == resume_id, ResumeSession.user_id == current_user.id).first()
+    if record is None:
+        raise HTTPException(404, "Resume not found")
+    contents = record.file_content
+    if contents is None:
+        raise HTTPException(404, "This older resume has no stored original. Please upload it again.")
+    mime = "application/pdf" if record.file_type == ".pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    return Response(contents, media_type=mime, headers={"Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": "attachment; filename*=UTF-8''" + quote(record.file_name, safe="")})

@@ -15,6 +15,19 @@ export default function ResumePage() {
   const parsedResume = resumes.find(file => file.id === selectedId) || resumes[0] || null;
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState<number | null>(null);
+  async function download(file: any) {
+    setDownloading(file.id); setError('');
+    try {
+      const blob = await fetchApi<Blob>(`/resume/session/${file.id}/file`, {}, 'blob');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = file.file_name;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err: any) { setError(err.message || 'Could not download your resume.'); }
+    finally { setDownloading(null); }
+  }
   async function remove(id: number) {
     if (!window.confirm('Delete this resume and its associated reports and conversations?')) return;
     setDeleting(id); setError('');
@@ -38,6 +51,7 @@ export default function ResumePage() {
       {!!resumes.length && <section aria-label="Saved resumes" className="space-y-2">
         {resumes.map(file => <div key={file.id} className="flex items-center gap-3 rounded-xl border border-white/10 p-3">
           <button onClick={() => setSelectedId(file.id)} className="text-left flex-1 min-w-0 break-all text-emerald-300">{file.file_name}</button>
+          <button disabled={downloading !== null} onClick={() => download(file)} aria-label={`Download ${file.file_name}`} className="text-sm text-emerald-300 disabled:opacity-40">{downloading === file.id ? 'Downloading…' : 'Download'}</button>
           <button disabled={deleting !== null} onClick={() => remove(file.id)} aria-label={`Delete ${file.file_name}`} className="text-sm text-rose-300 disabled:opacity-40">{deleting === file.id ? 'Deleting…' : 'Delete'}</button>
         </div>)}
         <Link href="/dashboard" className="inline-block text-sm text-emerald-300 underline">Compare a saved resume with a role</Link>

@@ -82,3 +82,12 @@ def test_unversioned_databases_require_baseline_adoption_release(storage_engine)
     Base.metadata.create_all(storage_engine)
     with pytest.raises(RuntimeError, match="baseline"):
         migrate(storage_engine)
+
+
+def test_backend_tables_are_not_exposed_through_postgres_data_api(storage_engine):
+    if storage_engine.dialect.name != 'postgresql':
+        pytest.skip('PostgreSQL RLS check runs in the PostgreSQL CI job')
+    migrate(storage_engine)
+    with storage_engine.connect() as connection:
+        rows = dict(connection.execute(text("SELECT relname, relrowsecurity FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'")).all())
+        assert all(rows[name] for name in Base.metadata.tables)

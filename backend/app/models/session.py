@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Text, JSON, LargeBinary
+from sqlalchemy.orm import relationship, deferred
 from app.core.database import Base
 
 
@@ -15,6 +15,8 @@ class ResumeSession(Base):
     file_name = Column(String(255), nullable=False)
     file_type = Column(String(50), nullable=False)
     file_path = Column(String(512), nullable=False)
+    # Deferred so listing resumes and loading research context never reads file bytes.
+    file_content = deferred(Column(LargeBinary, nullable=True))
     raw_text = Column(Text, nullable=True)
     parsed_data = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True)

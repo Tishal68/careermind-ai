@@ -66,7 +66,8 @@ function getCsrfToken(): string | null {
 
 export async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  responseType: 'json' | 'blob' = 'json'
 ): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('careermind_token') : null;
 
@@ -108,6 +109,7 @@ export async function fetchApi<T>(
       throw new ApiError('Your session changed. Please retry in your current account.', 409);
     }
     if (response.status === 204) return undefined as T;
+    if (response.ok && responseType === 'blob') return await response.blob() as T;
     const contentType = response.headers.get('content-type');
     const isJson = contentType && contentType.includes('application/json');
     const data = isJson ? await response.json() : await response.text();

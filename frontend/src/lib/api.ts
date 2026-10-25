@@ -14,6 +14,9 @@ export class ApiError extends Error {
 }
 
 export function getDefaultTimeoutForEndpoint(endpoint: string): number {
+  // A free instance can take longer than 30 seconds to wake. These entry-point
+  // operations are never automatically retried; research retains its idempotency key.
+  if (['/auth/login', '/auth/register', '/analysis/research'].includes(endpoint)) return 90000;
   // These synchronous operations can use the provider's 180-second budget.
   // Keep the client deadline below the proxy's 210 seconds, not below the AI call.
   if (['/chat/message', '/analysis/analyze', '/resume/pipeline', '/interview/start', '/interview/evaluate'].includes(endpoint)) {

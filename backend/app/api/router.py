@@ -16,6 +16,11 @@ from app.api.v1.admin import router as admin_router
 api_router = APIRouter()
 
 # Health
+@api_router.get("/deployment-info", tags=["Health"])
+def deployment_info():
+    return {"disposable_demo": settings.DEMO_MODE}
+
+
 @api_router.get("/health", response_model=HealthCheck, tags=["Health"])
 def health_check():
     return HealthCheck(status="healthy", project="CareerMind AI", version=settings.VERSION)

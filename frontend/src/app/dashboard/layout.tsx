@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { Compass, Target, Bot, FileText, ListChecks, MessagesSquare, Settings2, LogOut, ArrowUpRight, FolderOpen } from 'lucide-react';
 import DashboardLoading from './loading';
+import DeploymentNotice from '@/components/DeploymentNotice';
 
 const items = [
   { title: 'Role match', href: '/dashboard', icon: Target },
@@ -49,6 +50,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {items.map(({title, href, icon: Icon}) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} className="workspace-nav-link shrink-0 whitespace-nowrap"><Icon size={16} aria-hidden="true" />{title}</Link>)}
       </nav>
     </header>
-    <main key={user.id} id="main-content" tabIndex={-1} className="min-w-0 outline-none">{children}</main>
+    <main key={user.id} id="main-content" tabIndex={-1} className="min-w-0 outline-none"><div className="px-4 sm:px-8 pt-4"><DeploymentNotice /></div>{children}</main>
   </div>;
 }

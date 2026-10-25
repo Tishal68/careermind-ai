@@ -18,6 +18,8 @@ class Settings(BaseSettings):
         "DATABASE_URL", 
         "sqlite:///./careermind.db"
     )
+    # Render's free SQLite demo is disposable. Override when durable storage is configured.
+    DEMO_MODE: bool = bool(os.getenv("RENDER")) and os.getenv("DATABASE_URL", "sqlite:").startswith("sqlite:")
 
     # JWT Security
     SECRET_KEY: str = os.getenv("SECRET_KEY") or secrets.token_urlsafe(48)

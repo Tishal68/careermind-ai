@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button, Card, Input } from '@/components/UIComponents';
 import { fetchApi } from '@/lib/api';
 import dynamic from 'next/dynamic';
@@ -20,6 +20,7 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [success, setSuccess] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const validateAndSetFile = (selected: File) => {
     if (isUploading) return;
@@ -62,11 +63,11 @@ export const Uploader: React.FC<{ onSuccess: (data: any) => void }> = ({ onSucce
         onDrop={(e) => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files[0]) validateAndSetFile(e.dataTransfer.files[0]); }}
         className={`border-2 border-dashed rounded-2xl p-5 text-center transition-colors cursor-pointer ${isDragOver ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700/60 bg-slate-900/40'}`}
       >
-        <input type="file" accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && validateAndSetFile(e.target.files[0])} className="sr-only peer" disabled={isUploading} id="resume-file-input" />
-        <label htmlFor="resume-file-input" className="cursor-pointer block peer-focus-visible:outline peer-focus-visible:outline-emerald-400">
+        <input ref={fileInput} type="file" accept=".pdf,.docx" aria-label="Resume file" onChange={(e) => { const selected = e.target.files?.[0]; if (selected) validateAndSetFile(selected); e.target.value = ''; }} className="sr-only" tabIndex={-1} disabled={isUploading} id="resume-file-input" />
+        <button type="button" onClick={() => fileInput.current?.click()} disabled={isUploading} className="cursor-pointer block w-full rounded-lg focus-visible:outline focus-visible:outline-emerald-400" aria-label="Choose resume file (PDF/DOCX)">
           <div className="p-4 rounded-full bg-emerald-600/10 border border-emerald-500/20 w-fit mx-auto text-emerald-400 mb-4"><UploadCloud className="w-6 h-6" /></div>
           {file ? <p className="text-sm font-semibold text-white break-all flex items-center justify-center gap-2"><FileText className="w-4 h-4 text-emerald-400" />{file.name}</p> : <p className="text-sm font-medium text-slate-200">Click to upload or drag & drop resume file (PDF/DOCX)</p>}
-        </label>
+        </button>
       </div>
       {success && <p role="status" className="text-sm text-emerald-300 break-words">{success}</p>}
       {error && <div role="alert" className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" /><span>{error}</span></div>}

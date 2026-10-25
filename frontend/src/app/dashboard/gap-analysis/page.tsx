@@ -103,7 +103,7 @@ export default function GapAnalysisPage() {
       : !searchMarket && !jobUrl.trim() && !description.trim() ? 'Add a job URL or description, or enable market research.' : '';
     if (validation) { setError(validation); return; }
     restored.current = true;
-    setBusy(true); setError(''); setProgress('Starting research…');
+    setBusy(true); setError(''); setProgress('Starting research… The server may need up to 90 seconds to wake on the first request.');
     try {
       const body = JSON.stringify({ resume_id: Number(resumeId), job_role: role.trim(), location: location.trim() || 'Worldwide', experience_level: level,
         remote, company, job_url: jobUrl, job_description: description, search_market: searchMarket, refresh });
@@ -122,7 +122,6 @@ export default function GapAnalysisPage() {
       <h1 className="text-3xl sm:text-4xl xl:text-5xl font-semibold tracking-tight text-white">Find your fit. Build your skills.</h1>
       <p className="text-slate-400 max-w-2xl">Research any job role. Compare your resume with openings, discover common requirements, and build a plan for the company you want to join.</p>
     </header>
-    {error && <p role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-300">{error}</p>}
     {saved.error && <p role="alert" className="rounded-xl border border-rose-500/30 p-4 text-rose-300">Saved resumes could not be loaded. {saved.data ? 'Your last loaded resumes are still shown.' : 'Retry to access them; you do not need to upload them again.'} <button onClick={saved.reload} className="underline">Retry saved resumes</button></p>}
     {recent.error && <p role="alert" className="rounded-xl border border-rose-500/30 p-4 text-rose-300">Your saved report could not be loaded. You can still use a resume to research a role. <button onClick={recent.reload} className="underline">Retry saved report</button></p>}
     <div className="grid xl:grid-cols-[380px_1fr] gap-6 items-start">

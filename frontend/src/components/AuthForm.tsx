@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Input, Button } from '@/components/UIComponents';
 import { useAuth } from '@/context/AuthContext';
 import { fetchApi } from '@/lib/api';
+import DeploymentNotice from '@/components/DeploymentNotice';
 import { ArrowRight, Check, Compass, Eye, EyeOff, FileText, Target, TrendingUp } from 'lucide-react';
 
 export default function AuthForm({ register = false }: { register?: boolean }) {
@@ -45,6 +46,7 @@ export default function AuthForm({ register = false }: { register?: boolean }) {
         <div className="space-y-5">{[[FileText, 'Start with your experience', 'Upload your resume once.'], [Target, 'Find where you fit', 'Compare your skills with role requirements.'], [TrendingUp, 'Know what to learn next', 'Build a focused plan with your career coach.']].map(([Icon, title, text]: any) => <div key={title} className="flex gap-4"><div className="rounded-xl border border-white/10 bg-white/5 p-3 h-fit"><Icon className="w-5 h-5 text-emerald-300" /></div><div><h2 className="font-medium">{title}</h2><p className="text-sm text-slate-400 mt-1">{text}</p></div></div>)}</div>
       </section>
       <section className="w-full max-w-md mx-auto rounded-3xl border border-white/10 bg-[#151e29] p-6 sm:p-9 shadow-xl">
+        <div className="mb-5"><DeploymentNotice /></div>
         <p className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3">{register ? 'Get started' : 'Your workspace'}</p>
         <h2 className="text-3xl font-semibold tracking-tight">{register ? 'Create your account' : 'Welcome back'}</h2>
         <p className="text-sm text-slate-400 mt-3 mb-7">{register ? 'Save your resume, explore roles, and track your next steps.' : 'Sign in to continue your career plan.'}</p>

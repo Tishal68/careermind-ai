@@ -36,7 +36,7 @@ export default function ResearchResults({ report }: { report: any }) {
       <h2 className="text-xl font-bold text-white">Your {report.job_role} research</h2>
       <p className="text-sm text-slate-300">{research.preferences.location} · {report.experience_level}{research.preferences.remote ? ' · Remote' : ''}</p>
       <p className="text-xs text-slate-400">Analyzed {new Date(research.researched_at).toLocaleString()} · {research.sample_size} comparable postings</p>
-      <p className="text-sm text-slate-400">Coverage reflects evidence in your resume. It does not predict hiring or prove proficiency.</p>
+      <p className="text-sm text-slate-400">Coverage reflects resume evidence for the requirements shown. Extraction may miss requirements; review the full posting. This is not a hiring prediction or proof of proficiency.</p>
       {research.warnings?.map((warning: string, i: number) => <p key={i} className="text-sm text-amber-200">{warning}</p>)}
     </Card>
     {research.company_match && <section className="space-y-3"><h2 className="text-xl font-semibold text-white">Company-specific match</h2><Opening job={research.company_match} /></section>}

@@ -73,6 +73,30 @@ def test_closed_nonjob_and_unverified_title_excluded():
     assert research.evaluate_job(extracted(closing_date="2020-01-01", closure_quote="Closing date 2020-01-01"), closed, RESUME) is None
 
 
+def test_filtered_requirements_explain_coverage_scope():
+    job = extracted()
+    job.requirements[1].source_quote = "Invented requirement"
+    result = research.evaluate_job(job, source(), RESUME)
+    assert result["coverage"] == 100
+    assert "only to the requirements shown" in result["validation_note"]
+
+
+def test_clinical_gap_guidance_requires_training_and_supervision(monkeypatch):
+    text = "Registered Nurse in India. Medication administration is required."
+    job = extracted(title_quote="Registered Nurse", comparison_quote="Registered Nurse in India",
+                    requirements=[dict(name="Medication administration", kind="skill", importance="required",
+                                       source_quote="Medication administration is required",
+                                       resume_status="not_found", resume_quote="")])
+    monkeypatch.setattr(research, "extract", lambda *args: research.Extraction(jobs=[job]))
+    _, gaps = research.research(ResearchRequest(resume_id=1, job_role="Registered Nurse",
+        location="India", experience_level="Junior", search_market=False,
+        job_description=text + " Maintain accurate patient records and communicate with the care team."), RESUME)
+    step = gaps["learning_steps"][0]
+    assert "qualified supervision" in step
+    assert "licensing requirements" in step
+    assert "build a small" not in step
+
+
 def test_market_frequencies_filter_mismatches_and_company_stays_separate(monkeypatch):
     sources = [source(i) for i in range(4)]
     monkeypatch.setattr(research, "market_sources", lambda req: (sources, []))
@@ -152,6 +176,46 @@ def test_extraction_validation_retry_is_bounded(monkeypatch):
         research.extract([source()], RESUME, request())
     assert error.value.status_code == 502
     assert generate.call_count == 2
+
+
+def test_missing_explicit_requirements_are_retried_then_rejected(monkeypatch):
+    posting = source()
+    posting["text"] = "Junior Designer. Required skills: Figma, wireframing and prototyping."
+    job = extracted(requirements=[dict(name="Figma", kind="skill", importance="required",
+        source_quote="Figma", resume_status="evidenced", resume_quote="using Figma")])
+    generate = Mock(return_value=research.Extraction(jobs=[job]).model_dump())
+    monkeypatch.setattr(OllamaLLMProvider, "generate_json", generate)
+    with pytest.raises(HTTPException) as error:
+        research.extract([posting], RESUME, request())
+    assert error.value.status_code == 502
+    assert generate.call_count == 2
+    assert "wireframing" in generate.call_args_list[1].args[0]
+    assert "prototyping" in generate.call_args_list[1].args[0]
+
+
+def test_missing_requirements_repair_preserves_full_list(monkeypatch):
+    posting = source()
+    posting["text"] = "Junior Designer. Required: Figma, wireframing and prototyping."
+    job = extracted(requirements=[dict(name="Figma", kind="skill", importance="required",
+        source_quote="Figma", resume_status="evidenced", resume_quote="using Figma")])
+    repaired = job.model_copy(deep=True)
+    for name in ["wireframing", "prototyping"]:
+        repaired.requirements.append(research.Requirement(name=name, kind="skill", importance="required",
+            source_quote=name, resume_status="not_found"))
+    generate = Mock(side_effect=[research.Extraction(jobs=[j]).model_dump() for j in [job, repaired]])
+    monkeypatch.setattr(OllamaLLMProvider, "generate_json", generate)
+    result = research.extract([posting], RESUME, request())
+    assert len(result.jobs[0].requirements) == 3
+    assert research.evaluate_job(result.jobs[0], posting, RESUME)["coverage"] == 33
+
+
+def test_list_validation_accepts_full_specialization_quote_and_preserves_dotted_names():
+    posting = source()
+    posting["text"] = "Required: Node.js, Python pandas and SQL queries."
+    job = extracted(requirements=[dict(name=name, kind="skill", importance="required",
+        source_quote=quote, resume_status="not_found") for name, quote in
+        [("Node.js", "Node.js"), ("Python", "Python pandas"), ("SQL", "SQL queries")]])
+    assert research.extraction_issues(research.Extraction(jobs=[job]), [posting]) == []
 
 
 def test_background_api_persists_report_and_coach_sources(client, monkeypatch):

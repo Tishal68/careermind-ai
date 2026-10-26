@@ -44,8 +44,8 @@ test('library supports search, sorting, selection and capacity feedback', async 
   await page.getByLabel('Sort saved resumes').selectOption('name');
   await expect(library.getByRole('button').first()).toContainText('resume-01.pdf');
   await page.getByLabel('Search saved resumes').fill('resume-12');
-  await library.getByRole('button',{name:'resume-12.pdf View preview',exact:true}).click();
-  await expect(library.getByRole('button',{name:'resume-12.pdf Selected preview',exact:true})).toHaveAttribute('aria-pressed','true');
+  await library.getByRole('button',{name:'resume-12.pdf',exact:true}).click();
+  await expect(library.getByRole('button',{name:'resume-12.pdf',exact:true})).toHaveAttribute('aria-pressed','true');
   await page.getByLabel('Search saved resumes').fill('missing');
   await expect(page.getByText('No filenames match your search.',{exact:false})).toBeVisible();
   await page.getByRole('button',{name:'Clear search',exact:true}).click();

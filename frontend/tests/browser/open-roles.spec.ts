@@ -10,6 +10,8 @@ test('settings accepts a custom profession and late settings cannot overwrite ty
   let release: () => void = () => {};
   const held = new Promise<void>(resolve => {release=resolve;});
   let saved = '';
+  // A fresh session read must reflect the role persisted by the settings API.
+  await page.route('**/api/v1/auth/me', route => route.fulfill({json:{id:1,email:'roles@example.com',target_job_role:saved || 'Registered Nurse'}}));
   await page.route('**/api/v1/user/settings', async route=>{
     if(route.request().method()==='PUT') { saved=route.request().postDataJSON().target_job_role; await route.fulfill({json:{user:{target_job_role:saved}}}); }
     else { await held; await route.fulfill({json:{target_job_role:'Accountant',preferred_ai_model:'configured-model'}}); }

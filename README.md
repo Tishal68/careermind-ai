@@ -19,7 +19,7 @@ Custom job titles are accepted across research, settings and interview practice.
 - [Render deployment and environment settings](RENDER_SETUP.md)
 - [Research behavior, evidence and limits](JOB_RESEARCH.md)
 
-The root Dockerfile runs Next.js and FastAPI together. Configure provider credentials privately; never commit secrets. The current free Render deployment uses temporary storage: accounts, resumes and reports can be lost on redeployment. Persistent production storage remains a separate infrastructure task.
+The root Dockerfile runs Next.js and FastAPI together. Configure provider credentials privately; never commit secrets. The free Render deployment uses Supabase PostgreSQL for accounts, resumes and reports, including original resume files. See [Supabase setup and maintenance](docs/SUPABASE_SETUP.md). Render local storage is used only for temporary extraction; free hosting cold starts and database capacity limits still apply.
 
 ## Verification
 

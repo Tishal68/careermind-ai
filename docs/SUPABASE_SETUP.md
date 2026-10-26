@@ -26,8 +26,9 @@ Keep the owner URI server-only. Do not expose these tables with permissive polic
 Session pooling supports the migrations' advisory lock and normal sessions.
 The application uses a small connection pool, reconnect checks, and TLS for Supabase.
 
-The existing `render.yaml` describes the disposable SQLite demo. Do not apply its
-SQLite DATABASE_URL over this manually configured service.
+The `render.yaml` keeps Render on the free plan and requires a privately supplied
+`DATABASE_URL` (`sync: false`). It no longer supplies a SQLite production default.
+For an existing service, retain its working database URI and `SECRET_KEY`.
 
 ## Resume persistence and limits
 

@@ -91,3 +91,46 @@ def test_backend_tables_are_not_exposed_through_postgres_data_api(storage_engine
     with storage_engine.connect() as connection:
         rows = dict(connection.execute(text("SELECT relname, relrowsecurity FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'")).all())
         assert all(rows[name] for name in Base.metadata.tables)
+
+
+def test_parallel_uploads_cannot_exceed_account_limit(storage_engine, tmp_path, monkeypatch):
+    if storage_engine.dialect.name != 'postgresql':
+        pytest.skip('Concurrent row-lock check requires PostgreSQL')
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from uuid import uuid4
+    from sqlalchemy.orm import Session
+    from fastapi import HTTPException
+    from app.api.v1 import resume
+    from app.models import User, ResumeSession
+
+    migrate(storage_engine)
+    with Session(storage_engine) as db:
+        user = User(email='parallel@example.com', hashed_password='test')
+        db.add(user); db.flush()
+        uid = user.id
+        db.add_all([ResumeSession(user_id=uid, file_name=f'{i}.pdf', file_type='.pdf', file_path='') for i in range(19)])
+        db.commit()
+    barrier = Barrier(2)
+    monkeypatch.setattr(resume, 'UPLOAD_DIR', str(tmp_path))
+    def extracted(file, user_id):
+        unique = str(uuid4())
+        path = tmp_path / f'user_{user_id}' / unique / 'resume.pdf'
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b'synthetic original')
+        barrier.wait(timeout=10)
+        return 'resume.pdf', '.pdf', unique, str(path), 'Python developer'
+    monkeypatch.setattr(resume, 'save_resume_upload', extracted)
+    def upload():
+        with Session(storage_engine) as db:
+            try:
+                resume.persist_resume_upload(None, uid, db)
+                return 201
+            except HTTPException as exc:
+                return exc.status_code
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: upload(), range(2)))
+    assert sorted(results) == [201, 409]
+    with Session(storage_engine) as db:
+        assert db.query(ResumeSession).filter_by(user_id=uid).count() == 20
+    assert not list(tmp_path.rglob('resume.pdf'))

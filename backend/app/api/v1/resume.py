@@ -57,6 +57,14 @@ def save_resume_upload(file: UploadFile, user_id: int):
 def persist_resume_upload(file: UploadFile, user_id: int, db: Session):
     filename, ext, session_uuid, saved_path, raw_text = save_resume_upload(file, user_id)
     try:
+        # Serialize uploads for one account across PostgreSQL workers. Check again
+        # inside this transaction, after parsing, so simultaneous uploads cannot
+        # both claim the final slot. SQLite remains a local development option.
+        owner = db.query(User).filter(User.id == user_id).with_for_update().first()
+        if owner is None:
+            raise HTTPException(401, "Account is no longer available.")
+        if db.query(ResumeSession).filter(ResumeSession.user_id == user_id).count() >= 20:
+            raise HTTPException(409, "You have reached the 20-resume limit. Delete an old resume before uploading another.")
         record = ResumeSession(user_id=user_id, session_uuid=session_uuid,
             file_name=filename, file_type=ext, file_path="", raw_text=raw_text,
             parsed_data=ResumeParserService.parse_resume_content(raw_text),

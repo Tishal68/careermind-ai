@@ -1,9 +1,6 @@
-# Render Deployment Configuration for CareerMind AI
-#
-# Note: Render Free tier does not support persistent disks.
-# The primary service 'careermind-ai' below defines the authorized free setup.
-# Database and uploaded files reside on the ephemeral container filesystem (/app/data)
-# and do not persist across instance replacement or redeployment.
+# Free Render web service with externally managed Supabase PostgreSQL.
+# Set DATABASE_URL privately to the Supabase session pooler URI (port 5432).
+# Resume originals are stored in PostgreSQL; local uploads are temporary.
 
 services:
   - type: web
@@ -32,28 +29,4 @@ services:
       - key: UPLOAD_DIR
         value: /app/data/uploads/resumes
       - key: DATABASE_URL
-        value: sqlite:////app/data/careermind.db
-
-# ----------------------------------------------------------------------------
-# OPTIONAL PAID PRODUCTION CONFIGURATION (Approval & paid resources required)
-# ----------------------------------------------------------------------------
-# To provision durable storage on Render, upgrade to the Starter plan ($7/mo)
-# and attach a persistent disk ($0.25/mo per GB), or migrate to managed PostgreSQL
-# plus S3/Cloudflare R2 object storage.
-# DO NOT APPLY WITHOUT EXPLICIT PAYMENT AUTHORIZATION.
-#
-# Reference Paid Service Blueprint:
-# services:
-#   - type: web
-#     name: careermind-ai-paid
-#     runtime: docker
-#     region: oregon
-#     plan: starter
-#     disk:
-#       name: careermind-data
-#       mountPath: /app/data
-#       sizeGB: 1
-#     dockerfilePath: ./Dockerfile
-#     dockerContext: .
-#     healthCheckPath: /api/v1/ready
-#     envVars: ...
+        sync: false

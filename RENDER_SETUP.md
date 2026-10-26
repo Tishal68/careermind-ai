@@ -78,27 +78,19 @@ Configure the Render service HTTP readiness health check:
 
 This ensures Render routes inbound traffic only after FastAPI has started, database schema migrations have executed, and the internal proxy is responsive.
 
-## Storage durability risks on Render Free Tier
+## Free hosting with persistent data
 
-The active deployment runs on the Render Free web tier. The implications are:
-1. **Ephemeral storage**: The SQLite database (`/app/data/careermind.db`) and uploaded resumes (`/app/data/uploads/resumes`) reside entirely on the container filesystem. When Render restarts, spins down after inactivity, or redeploys the container, this local data is reset.
-2. **Cold starts**: Free instances spin down after 15 minutes of inactivity and require 30–60 seconds to spin up on subsequent requests.
-3. **No persistent disk**: Persistent disks cannot be attached to free services on Render.
+The supported setup is a free Render web service plus Supabase PostgreSQL.
+Accounts, reports, extracted text, and original resume files live in PostgreSQL.
+Render's local upload folder is temporary extraction space, not durable storage.
+Follow [Supabase setup](docs/SUPABASE_SETUP.md) for the private session pooler URI,
+TLS, migration behavior, capacity limits, and persistence verification.
 
-## Compatible durable storage roadmap (Paid production paths)
+The Blueprint requires `DATABASE_URL` as a private value. Keep the existing
+`SECRET_KEY` unchanged when updating a service. Never replace a working database
+connection with a local SQLite URL.
 
-Before onboarding production users with valuable personal data, select an authorized durable storage path:
-
-- **Path A: Single-Instance with Persistent Disk (Lowest Cost)**
-  - Upgrade web service to Render **Starter** plan ($7/mo).
-  - Attach a **1 GB Persistent Disk** ($0.25/mo) mounted at `/app/data`.
-  - Retains the existing SQLite database and filesystem storage without application changes.
-  - *Limitation*: Single instance only; rolling zero-downtime deploys are disabled when a disk is mounted.
-
-- **Path B: Scalable Multi-Instance Architecture (Recommended for Production)**
-  - **Database**: Managed PostgreSQL (Render PostgreSQL, Neon, AWS RDS, or Supabase). Set `DATABASE_URL=postgresql+psycopg://user:pass@host/dbname`. Schema migrations run automatically via Alembic on startup.
-  - **Object Storage**: S3-compatible cloud storage (AWS S3, Cloudflare R2, or Google Cloud Storage) for resume file persistence.
-  - **Scaling**: Completely stateless web containers allow horizontal scaling across multiple instances with zero-downtime deployments.
-
-Do not apply paid Blueprints or provision paid database/disk resources without explicit approval.
-
+Free web instances can have cold starts, and free database capacity is limited.
+This setup is intended for a small college project. Monitor database usage and
+maintain independent backups. Moving original files to object storage is a future
+scaling step; no paid resources are provisioned by this configuration.
